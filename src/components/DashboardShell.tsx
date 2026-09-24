@@ -31,7 +31,7 @@ export function DashboardShell({ children, userEmail, userName, userAvatar, loca
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden">
       <Sidebar
         isCollapsed={isCollapsed}
         onToggle={handleToggle}

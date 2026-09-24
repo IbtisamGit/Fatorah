@@ -46,17 +46,17 @@ export function Navbar({ userEmail, userName, userAvatar, onMobileMenuOpen }: Na
   const initials = displayString.charAt(0).toUpperCase()
 
   return (
-    <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-6 shrink-0">
+    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors duration-200 h-16 flex items-center justify-between px-4 lg:px-6 shrink-0">
       {/* Left: Mobile menu + Page title */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMobileMenuOpen}
-          className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors"
+          className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <h1 className="text-base font-semibold text-slate-700">{pageLabel}</h1>
+        <h1 className="text-base font-semibold text-slate-700 dark:text-slate-100">{pageLabel}</h1>
       </div>
 
       {/* Right: User avatar + info + logout */}
@@ -66,7 +66,7 @@ export function Navbar({ userEmail, userName, userAvatar, onMobileMenuOpen }: Na
         <div className="flex items-center gap-2.5">
           {/* Email / Name — hidden on small screens */}
           <div className="hidden sm:flex flex-col items-end justify-center">
-            <span className="text-sm font-semibold text-slate-700 max-w-[150px] truncate leading-tight">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 max-w-[150px] truncate leading-tight">
               {userName || userEmail}
             </span>
             {userName && (
@@ -77,24 +77,24 @@ export function Navbar({ userEmail, userName, userAvatar, onMobileMenuOpen }: Na
           </div>
 
           {/* Avatar circle */}
-          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 overflow-hidden border border-emerald-200/50">
+          <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0 overflow-hidden border border-emerald-200/50 dark:border-emerald-700/50">
             {userAvatar ? (
               <img src={userAvatar} alt="avatar" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-sm font-bold text-emerald-700">{initials}</span>
+              <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{initials}</span>
             )}
           </div>
         </div>
 
         {/* Divider */}
-        <div className="w-px h-6 bg-slate-200 hidden sm:block mx-1" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 hidden sm:block mx-1" />
 
         {/* Logout */}
         <Button
           variant="ghost"
           size="sm"
           onClick={handleLogout}
-          className="text-slate-500 hover:text-red-500 hover:bg-red-50 gap-1.5 h-9 px-3 rounded-xl"
+          className="text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 gap-1.5 h-9 px-3 rounded-xl"
         >
           <LogOut className="w-4 h-4" />
           <span className="hidden sm:inline text-sm">{t('logout')}</span>

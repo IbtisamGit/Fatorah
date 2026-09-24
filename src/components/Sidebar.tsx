@@ -38,7 +38,7 @@ function NavItem({
         isCollapsed ? 'justify-center p-3 mx-1' : 'gap-3 px-3 py-2.5',
         isActive
           ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+          : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200'
       )}
     >
       <Icon className="w-[18px] h-[18px] shrink-0" />
@@ -74,7 +74,7 @@ export function Sidebar({
       {/* ── Desktop ── */}
       <aside
         className={clsx(
-          'relative hidden md:flex flex-col bg-white border-r border-slate-200/80 h-full shrink-0',
+          'relative hidden md:flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 h-full shrink-0',
           'transition-all duration-300 ease-in-out',
           isCollapsed ? 'w-[68px]' : 'w-[230px]'
         )}
@@ -84,10 +84,10 @@ export function Sidebar({
           onClick={onToggle}
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="absolute -right-3 top-[72px] z-50
-                     w-6 h-6 rounded-full bg-white border border-slate-200
+                     w-6 h-6 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700
                      flex items-center justify-center shadow-md
-                     hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600
-                     text-slate-400 transition-all duration-200"
+                     hover:bg-emerald-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-slate-600 hover:text-emerald-600 dark:hover:text-emerald-400
+                     text-slate-400 dark:text-slate-500 transition-all duration-200"
         >
           {isCollapsed
             ? <ChevronRight className="w-3.5 h-3.5" />
@@ -96,14 +96,14 @@ export function Sidebar({
 
         {/* Logo */}
         <div className={clsx(
-          'flex items-center h-16 border-b border-slate-100 shrink-0 overflow-hidden',
+          'flex items-center h-16 border-b border-slate-100 dark:border-slate-800 shrink-0 overflow-hidden',
           isCollapsed ? 'justify-center px-3' : 'px-5 gap-2.5'
         )}>
           <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30">
             <Receipt className="w-4 h-4 text-white" />
           </div>
           {!isCollapsed && (
-            <span className="text-[15px] font-bold text-slate-800 tracking-tight">Fatorah</span>
+            <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 tracking-tight">Fatorah</span>
           )}
         </div>
 
@@ -119,8 +119,8 @@ export function Sidebar({
 
         {/* Footer */}
         {!isCollapsed && (
-          <div className="px-5 pb-4 pt-2 border-t border-slate-100">
-            <p className="text-[11px] text-slate-400">© {new Date().getFullYear()} Fatorah</p>
+          <div className="px-5 pb-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">© {new Date().getFullYear()} Fatorah</p>
           </div>
         )}
       </aside>
