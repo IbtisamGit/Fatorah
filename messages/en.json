@@ -1,7 +1,17 @@
 {
   "Index": {
-    "title": "Fatorah",
-    "description": "Smart Finance Tracker & OCR"
+    "hero_badge": "Smart Finance Tracker & OCR",
+    "hero_title": "Take Control of Your Finances with AI",
+    "hero_subtitle": "Stop typing your expenses manually. Just snap a photo of your receipt, and our AI will extract, categorize, and track it instantly.",
+    "cta_start": "Get Started for Free",
+    "cta_login": "Login to Account",
+    "features_title": "Everything you need to manage your money",
+    "feature_1_title": "AI Receipt Scanner",
+    "feature_1_desc": "Upload any receipt and our AI extracts the merchant, date, and total amount instantly.",
+    "feature_2_title": "Smart Categorization",
+    "feature_2_desc": "Expenses are automatically categorized so you always know exactly where your money goes.",
+    "feature_3_title": "Visual Analytics",
+    "feature_3_desc": "Beautiful charts and reports help you understand your spending habits at a glance."
   },
   "Auth": {
     "login": "Login",
@@ -13,5 +23,14 @@
     "create_account": "Create a new account",
     "need_account": "Need an account? Sign Up",
     "already_have_account": "Already have an account? Login"
+  },
+  "Sidebar": {
+    "overview": "Overview",
+    "expenses": "Expenses",
+    "scanner": "Scanner",
+    "analytics": "Analytics",
+    "categories": "Categories",
+    "settings": "Settings",
+    "logout": "Log out"
   }
 }
