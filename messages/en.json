@@ -1,0 +1,17 @@
+{
+  "Index": {
+    "title": "Fatorah",
+    "description": "Smart Finance Tracker & OCR"
+  },
+  "Auth": {
+    "login": "Login",
+    "signup": "Sign Up",
+    "email": "Email Address",
+    "password": "Password",
+    "submit": "Continue",
+    "welcome_back": "Welcome back to Fatorah",
+    "create_account": "Create a new account",
+    "need_account": "Need an account? Sign Up",
+    "already_have_account": "Already have an account? Login"
+  }
+}
