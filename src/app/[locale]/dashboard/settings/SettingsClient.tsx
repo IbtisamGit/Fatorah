@@ -3,7 +3,7 @@
 import { useState, useRef, useTransition, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { useRouter, usePathname } from '@/i18n/routing'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { createClient } from '@/utils/supabase/client'
 import { applyFontSize, type FontSizeOption } from '@/components/ThemeProvider'
 import {
@@ -42,7 +42,7 @@ function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
 }
 
 // ─── Helper: Save Button ───────────────────────────────────────────────────────
-function SaveButton({ loading, saved }: { loading: boolean; saved: boolean }) {
+function SaveButton({ loading, saved, textSave, textSaving, textSaved }: { loading: boolean; saved: boolean; textSave?: string; textSaving?: string; textSaved?: string }) {
   return (
     <button
       type="submit"
@@ -56,7 +56,7 @@ function SaveButton({ loading, saved }: { loading: boolean; saved: boolean }) {
       )}
     >
       {saved ? <Check className="w-4 h-4" /> : null}
-      {loading ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+      {loading ? (textSaving || 'Saving…') : saved ? (textSaved || 'Saved!') : (textSave || 'Save Changes')}
     </button>
   )
 }
@@ -97,6 +97,7 @@ export function SettingsClient({
   const router = useRouter()
   const pathname = usePathname()
   const locale = useLocale()
+  const t = useTranslations('Settings')
   const { theme, setTheme } = useTheme()
   const { msg: toast, show: showToast } = useToast()
 
@@ -230,7 +231,9 @@ export function SettingsClient({
 
   const toggleLanguage = () => {
     const next = locale === 'ar' ? 'en' : 'ar'
-    router.replace(pathname, { locale: next })
+    // Perform a hard navigation to avoid next-themes script tag hydration errors
+    const newUrl = pathname === '/' ? `/${next}` : `/${next}${pathname}`
+    window.location.href = newUrl
   }
 
   // ── Delete Account ────────────────────────────────────────────────────────────
@@ -256,11 +259,11 @@ export function SettingsClient({
 
   // Tabs Configuration
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'finance', label: 'Finance', icon: Wallet },
-    { id: 'security', label: 'Security', icon: Lock },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'account', label: 'Account', icon: LogOut },
+    { id: 'profile', label: t('tab_profile'), icon: User },
+    { id: 'finance', label: t('tab_finance'), icon: Wallet },
+    { id: 'security', label: t('tab_security'), icon: Lock },
+    { id: 'appearance', label: t('tab_appearance'), icon: Palette },
+    { id: 'account', label: t('tab_account'), icon: LogOut },
   ] as const
 
   return (
@@ -268,8 +271,8 @@ export function SettingsClient({
 
       {/* Page Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Settings</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Manage your account preferences</p>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{t('subtitle')}</p>
       </div>
 
       {/* Toast */}
@@ -318,8 +321,8 @@ export function SettingsClient({
           {activeTab === 'profile' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Public Profile</h3>
-                 <p className="text-sm text-slate-500 mt-1">Update your photo and personal details.</p>
+                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">{t('profile_title')}</h3>
+                 <p className="text-sm text-slate-500 mt-1">{t('profile_desc')}</p>
                </div>
                <form onSubmit={saveProfile} className="p-6 space-y-6">
                  {/* Avatar */}
@@ -336,23 +339,23 @@ export function SettingsClient({
                      </div>
                    </div>
                    <div>
-                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Profile Photo</p>
-                     <p className="text-xs text-slate-400 mt-0.5">JPG, PNG or WebP · Max 2MB</p>
+                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('profile_photo')}</p>
+                     <p className="text-xs text-slate-400 mt-0.5">{t('profile_photo_hint')}</p>
                    </div>
                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                  </div>
                  
                  <div className="grid gap-6 sm:grid-cols-2">
-                   <Field label="Display Name">
+                   <Field label={t('display_name')}>
                      <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your full name" />
                    </Field>
-                   <Field label="Email Address">
+                   <Field label={t('email')}>
                      <Input value={email} disabled className="opacity-60 cursor-not-allowed bg-slate-50" />
                    </Field>
                  </div>
                  
                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                   <SaveButton loading={profileSaving} saved={profileSaved} />
+                   <SaveButton loading={profileSaving} saved={profileSaved} textSave={t('save')} textSaving={t('saving')} textSaved={t('saved')} />
                  </div>
                </form>
             </div>
@@ -362,11 +365,11 @@ export function SettingsClient({
           {activeTab === 'finance' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Financial Preferences</h3>
-                 <p className="text-sm text-slate-500 mt-1">Set your monthly budget and currency.</p>
+                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">{t('finance_title')}</h3>
+                 <p className="text-sm text-slate-500 mt-1">{t('finance_desc')}</p>
                </div>
               <form onSubmit={saveFinance} className="p-6 space-y-6">
-                <Field label="Monthly Budget" hint="Set to 0 to disable budget tracking">
+                <Field label={t('monthly_budget')} hint={t('budget_hint')}>
                   <div className="flex gap-2 max-w-md">
                     <select
                       value={currency}
@@ -384,7 +387,7 @@ export function SettingsClient({
                   </div>
                 </Field>
 
-                <Field label={`Budget Alert Threshold`} hint="Get warned when spending reaches this percentage">
+                <Field label={t('budget_alert')} hint={t('alert_hint')}>
                   <div className="flex items-center gap-4 max-w-md bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                     <input
                       type="range" min={50} max={100} step={5}
@@ -403,7 +406,7 @@ export function SettingsClient({
                 </Field>
 
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                   <SaveButton loading={financeSaving} saved={financeSaved} />
+                   <SaveButton loading={financeSaving} saved={financeSaved} textSave={t('save')} textSaving={t('saving')} textSaved={t('saved')} />
                 </div>
               </form>
             </div>
@@ -413,22 +416,22 @@ export function SettingsClient({
           {activeTab === 'security' && (
              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Security</h3>
-                  <p className="text-sm text-slate-500 mt-1">Change your password to keep your account secure.</p>
+                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">{t('security_title')}</h3>
+                  <p className="text-sm text-slate-500 mt-1">{t('security_desc')}</p>
                 </div>
                <form onSubmit={changePassword} className="p-6 space-y-5 max-w-md">
-                 <Field label="Current Password">
+                 <Field label={t('current_pw')}>
                    <Input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="••••••••" />
                  </Field>
-                 <Field label="New Password" hint="Must be at least 6 characters">
+                 <Field label={t('new_pw')} hint={t('new_pw_hint')}>
                    <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="••••••••" />
                  </Field>
-                 <Field label="Confirm New Password">
+                 <Field label={t('confirm_pw')}>
                    <Input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="••••••••" />
                  </Field>
                  
                  <div className="pt-4">
-                    <SaveButton loading={pwSaving} saved={false} />
+                    <SaveButton loading={pwSaving} saved={false} textSave={t('save')} textSaving={t('saving')} textSaved={t('saved')} />
                  </div>
                </form>
              </div>
@@ -438,26 +441,26 @@ export function SettingsClient({
           {activeTab === 'appearance' && (
              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Appearance & Language</h3>
-                  <p className="text-sm text-slate-500 mt-1">Customize how Fatorah looks on this device.</p>
+                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">{t('appearance_title')}</h3>
+                  <p className="text-sm text-slate-500 mt-1">{t('appearance_desc')}</p>
                 </div>
                <div className="p-6 space-y-8 max-w-xl">
                  
                  <div>
-                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Color Theme</label>
+                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('color_theme')}</label>
                    <div className="grid grid-cols-2 gap-3">
-                     {(['light', 'dark'] as const).map(t => (
+                     {(['light', 'dark'] as const).map(themeOption => (
                        <button
-                         key={t} onClick={() => setTheme(t)}
+                         key={themeOption} onClick={() => setTheme(themeOption)}
                          className={clsx(
                            'flex items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all',
-                           mounted && theme === t
+                           mounted && theme === themeOption
                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
                              : 'border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                          )}
                        >
-                         {t === 'light' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                         <span className="font-semibold">{t === 'light' ? 'Light Mode' : 'Dark Mode'}</span>
+                         {themeOption === 'light' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                         <span className="font-semibold">{themeOption === 'light' ? t('light_mode') : t('dark_mode')}</span>
                        </button>
                      ))}
                    </div>
@@ -466,7 +469,7 @@ export function SettingsClient({
                  <hr className="border-slate-100 dark:border-slate-800" />
 
                  <div>
-                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Language</label>
+                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('language')}</label>
                    <button
                      onClick={toggleLanguage}
                      className="flex items-center justify-between w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 transition-all bg-slate-50 dark:bg-slate-800/50 group"
@@ -479,7 +482,7 @@ export function SettingsClient({
                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                            {locale === 'ar' ? 'العربية' : 'English'}
                          </p>
-                         <p className="text-xs text-slate-500">Click to switch</p>
+                         <p className="text-xs text-slate-500">{t('click_switch')}</p>
                        </div>
                      </div>
                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-500 transition-colors" />
@@ -489,7 +492,7 @@ export function SettingsClient({
                  <hr className="border-slate-100 dark:border-slate-800" />
 
                  <div>
-                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Interface Scale</label>
+                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('interface_scale')}</label>
                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
                      {(['sm', 'md', 'lg', 'xl'] as FontSizeOption[]).map((size, i) => (
                        <button
@@ -501,7 +504,7 @@ export function SettingsClient({
                              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
                          )}
                        >
-                         {['Small', 'Normal', 'Large', 'Extra'][i]}
+                         {[t('scale_sm'), t('scale_md'), t('scale_lg'), t('scale_xl')][i]}
                        </button>
                      ))}
                    </div>
@@ -515,8 +518,8 @@ export function SettingsClient({
           {activeTab === 'account' && (
              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Account Management</h3>
-                  <p className="text-sm text-slate-500 mt-1">Sign out or permanently delete your account.</p>
+                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">{t('account_title')}</h3>
+                  <p className="text-sm text-slate-500 mt-1">{t('account_desc')}</p>
                 </div>
                <div className="p-6 space-y-6 max-w-xl">
                  
@@ -524,7 +527,7 @@ export function SettingsClient({
                    onClick={handleLogout}
                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-colors"
                  >
-                   <LogOut className="w-4 h-4" /> Sign Out
+                   <LogOut className="w-4 h-4" /> {t('logout') || 'Sign Out'}
                  </button>
 
                  <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10 p-5 space-y-4">
@@ -533,24 +536,22 @@ export function SettingsClient({
                        <Trash2 className="w-5 h-5 text-red-600 dark:text-red-500" />
                      </div>
                      <div>
-                       <h4 className="text-sm font-bold text-red-900 dark:text-red-400">Danger Zone</h4>
-                       <p className="text-xs text-red-700/80 dark:text-red-400/80 mt-1 leading-relaxed">
-                         This action cannot be undone. All your expenses, receipts, and settings will be permanently deleted.
-                       </p>
+                       <h4 className="text-sm font-bold text-red-900 dark:text-red-400">{t('danger_zone')}</h4>
+                       <p className="text-xs text-red-700/80 dark:text-red-400/80 mt-1 leading-relaxed">{t('danger_desc')}</p>
                      </div>
                    </div>
                    
                    <div className="flex gap-2 pt-2">
                      <input
                        type="text" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)}
-                       placeholder="Type DELETE to confirm"
+                       placeholder={t('type_delete')}
                        className="flex-1 h-10 px-3 rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                      />
                      <button
                        onClick={deleteAccount} disabled={isDeleting || deleteConfirm !== 'DELETE'}
                        className="px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                      >
-                       {isDeleting ? 'Deleting…' : 'Delete Account'}
+                       {isDeleting ? t('deleting') : t('delete_btn')}
                      </button>
                    </div>
                  </div>

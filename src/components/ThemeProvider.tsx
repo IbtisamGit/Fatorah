@@ -38,7 +38,7 @@ export function applyFontSize(size: FontSizeOption) {
     lg: '18px',
     xl: '20px',
   }
-  document.documentElement.style.setProperty('--base-font-size', map[size])
+  document.documentElement.style.fontSize = map[size]
   document.documentElement.setAttribute('data-font-size', size)
   localStorage.setItem(FONT_SIZE_KEY, size)
 }
