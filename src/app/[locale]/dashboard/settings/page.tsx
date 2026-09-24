@@ -1,13 +1,29 @@
-import { useTranslations } from 'next-intl';
+import { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
+import { SettingsClient } from './SettingsClient'
 
-export default function SettingsPage() {
-  const t = useTranslations('Sidebar');
+export default async function SettingsPage() {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (error || !user) redirect('/login')
+
+  // Fetch extended profile from public.users
+  const { data: profile } = await supabase
+    .from('users')
+    .select('full_name, avatar_url, monthly_budget_limit, currency, budget_alert_percent')
+    .eq('id', user.id)
+    .single()
+
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight">{t('settings')}</h2>
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <p className="text-gray-500">Settings (Budget, Password, Profile) will be implemented here.</p>
-      </div>
-    </div>
-  );
+    <SettingsClient
+      userId={user.id}
+      email={user.email ?? ''}
+      initialFullName={profile?.full_name ?? ''}
+      initialAvatarUrl={profile?.avatar_url ?? null}
+      initialBudget={profile?.monthly_budget_limit ?? null}
+      initialCurrency={profile?.currency ?? 'SAR'}
+      initialAlertPercent={profile?.budget_alert_percent ?? 80}
+    />
+  )
 }
