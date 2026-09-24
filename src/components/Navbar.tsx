@@ -18,10 +18,12 @@ const PAGE_LABELS: Record<string, { ar: string; en: string }> = {
 
 interface NavbarProps {
   userEmail?: string
+  userName?: string
+  userAvatar?: string
   onMobileMenuOpen: () => void
 }
 
-export function Navbar({ userEmail, onMobileMenuOpen }: NavbarProps) {
+export function Navbar({ userEmail, userName, userAvatar, onMobileMenuOpen }: NavbarProps) {
   const router   = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -39,8 +41,9 @@ export function Navbar({ userEmail, onMobileMenuOpen }: NavbarProps) {
     router.push('/login')
   }
 
-  // Avatar initials from email
-  const initials = userEmail?.charAt(0).toUpperCase() ?? '?'
+  // Avatar initials from name or email
+  const displayString = userName || userEmail || '?'
+  const initials = displayString.charAt(0).toUpperCase()
 
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-6 shrink-0">
@@ -56,19 +59,35 @@ export function Navbar({ userEmail, onMobileMenuOpen }: NavbarProps) {
         <h1 className="text-base font-semibold text-slate-700">{pageLabel}</h1>
       </div>
 
-      {/* Right: User avatar + email + logout */}
-      <div className="flex items-center gap-2">
-        {/* Avatar circle */}
-        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-          <span className="text-sm font-bold text-emerald-700">{initials}</span>
+      {/* Right: User avatar + info + logout */}
+      <div className="flex items-center gap-3">
+        
+        {/* User Info & Avatar */}
+        <div className="flex items-center gap-2.5">
+          {/* Email / Name — hidden on small screens */}
+          <div className="hidden sm:flex flex-col items-end justify-center">
+            <span className="text-sm font-semibold text-slate-700 max-w-[150px] truncate leading-tight">
+              {userName || userEmail}
+            </span>
+            {userName && (
+              <span className="text-xs text-slate-400 max-w-[150px] truncate leading-tight">
+                {userEmail}
+              </span>
+            )}
+          </div>
+
+          {/* Avatar circle */}
+          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 overflow-hidden border border-emerald-200/50">
+            {userAvatar ? (
+              <img src={userAvatar} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-emerald-700">{initials}</span>
+            )}
+          </div>
         </div>
 
-        {/* Email — hidden on small screens */}
-        {userEmail && (
-          <span className="text-sm text-slate-500 hidden sm:inline-block max-w-[180px] truncate">
-            {userEmail}
-          </span>
-        )}
+        {/* Divider */}
+        <div className="w-px h-6 bg-slate-200 hidden sm:block mx-1" />
 
         {/* Logout */}
         <Button

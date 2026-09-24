@@ -11,16 +11,28 @@ export default async function DashboardLayout({
   params: Promise<{ locale: string }>
 }) {
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error || !data?.user) {
+  if (error || !user) {
     redirect('/login')
   }
+
+  // Fetch extended profile for Navbar (name, avatar)
+  const { data: profile } = await supabase
+    .from('users')
+    .select('full_name, avatar_url')
+    .eq('id', user.id)
+    .single()
 
   const { locale } = await params
 
   return (
-    <DashboardShell userEmail={data.user.email} locale={locale}>
+    <DashboardShell 
+      userEmail={user.email} 
+      userName={profile?.full_name}
+      userAvatar={profile?.avatar_url}
+      locale={locale}
+    >
       {children}
     </DashboardShell>
   )

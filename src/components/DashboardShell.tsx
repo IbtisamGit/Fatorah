@@ -7,10 +7,12 @@ import { Navbar } from './Navbar'
 interface DashboardShellProps {
   children: ReactNode
   userEmail?: string
+  userName?: string
+  userAvatar?: string
   locale: string
 }
 
-export function DashboardShell({ children, userEmail, locale }: DashboardShellProps) {
+export function DashboardShell({ children, userEmail, userName, userAvatar, locale }: DashboardShellProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -39,6 +41,8 @@ export function DashboardShell({ children, userEmail, locale }: DashboardShellPr
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <Navbar
           userEmail={userEmail}
+          userName={userName}
+          userAvatar={userAvatar}
           onMobileMenuOpen={() => setMobileOpen(true)}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
