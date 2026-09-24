@@ -1,13 +1,21 @@
 'use client';
 
-import {useTranslations} from 'next-intl';
+import {useTranslations, useLocale} from 'next-intl';
 import {Button} from '@/components/ui/button';
-import {Link} from '@/i18n/routing';
-import { ArrowRight, Receipt, ScanLine, PieChart, Sparkles } from 'lucide-react';
+import {Link, usePathname, useRouter} from '@/i18n/routing';
+import { ArrowRight, Receipt, ScanLine, PieChart, Sparkles, Globe } from 'lucide-react';
 import { MagicParticles } from '@/components/MagicParticles';
 
 export default function HomePage() {
   const t = useTranslations('Index');
+  const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const toggleLanguage = () => {
+    const nextLocale = locale === 'ar' ? 'en' : 'ar';
+    router.replace(pathname, { locale: nextLocale });
+  };
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -20,7 +28,16 @@ export default function HomePage() {
             </div>
             <span className="font-extrabold text-2xl text-white tracking-tight drop-shadow-md">Fatorah</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button 
+              variant="ghost" 
+              onClick={toggleLanguage}
+              className="text-white hover:text-green-400 hover:bg-white/10 font-bold px-3 gap-2"
+            >
+              <Globe className="w-5 h-5" />
+              <span className="uppercase">{locale === 'ar' ? 'EN' : 'عربي'}</span>
+            </Button>
+            
             <Link href="/login">
               <Button variant="ghost" className="hidden sm:inline-flex text-white hover:text-green-400 hover:bg-white/10 font-medium">
                 {t('cta_login')}

@@ -8,9 +8,12 @@ export default async function DashboardLayout({ children, params }: { children: 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
 
-  if (error || !data?.user) {
-    redirect('/login');
-  }
+  // For UI Prototyping: Disable strict redirect so we can view the dashboard
+  // if (error || !data?.user) {
+  //   redirect('/login');
+  // }
+  
+  const user = data?.user || { email: 'demo@fatorah.com' };
 
   const { locale } = await params;
 
@@ -18,7 +21,7 @@ export default async function DashboardLayout({ children, params }: { children: 
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar locale={locale} />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Navbar userEmail={data.user.email} />
+        <Navbar userEmail={user.email} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}
         </main>
