@@ -42,28 +42,104 @@ function QuickAction({
 }) {
   return (
     <Link href={href}>
-      <div className="group flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100
-                      hover:border-slate-200 hover:shadow-md transition-all duration-200 cursor-pointer">
+      <div className="group flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800
+                      hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-md transition-all duration-200 cursor-pointer">
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
           <Icon className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-800">{label}</p>
-          <p className="text-xs text-slate-500 truncate">{description}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{description}</p>
         </div>
-        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+        <ArrowRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 group-hover:translate-x-0.5 transition-all" />
       </div>
     </Link>
   )
 }
 
+import { createClient } from '@/utils/supabase/server'
+import { OverviewCharts } from './OverviewCharts'
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function OverviewPage() {
-  // TODO (Day 3): Replace these with real Supabase data
-  const totalSpent      = 0
-  const monthlyBudget   = 0
-  const receiptCount    = 0
-  const topCategory     = '—'
+export default async function OverviewPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  let totalSpent = 0
+  let receiptCount = 0
+  let topCategory = '—'
+  let monthlyBudget = 0
+  
+  const chartData = {
+    monthlyData: [] as { month: string, amount: number }[],
+    categoryData: [] as { name: string, value: number, color: string }[]
+  }
+
+  if (user) {
+    // Fetch User Profile for Budget
+    const { data: profile } = await supabase
+      .from('users')
+      .select('monthly_budget_limit')
+      .eq('id', user.id)
+      .single()
+      
+    if (profile?.monthly_budget_limit) {
+      monthlyBudget = profile.monthly_budget_limit
+    }
+
+    // Fetch Expenses and Categories
+    const [{ data: expenses }, { data: categories }] = await Promise.all([
+      supabase.from('expenses').select('*').eq('user_id', user.id),
+      supabase.from('categories').select('*')
+    ])
+      
+    if (expenses && expenses.length > 0) {
+      totalSpent = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
+      receiptCount = expenses.length
+      
+      const catsData = expenses.reduce((acc, exp) => {
+        // Map category_id back to name
+        const cId = exp.category_id
+        let cName = 'Other'
+        let cColor = '#94a3b8'
+        
+        if (categories && cId) {
+          const match = categories.find(c => c.id === cId)
+          if (match) {
+            cName = match.name
+            cColor = match.color_hex
+          }
+        }
+        
+        if (!acc[cName]) acc[cName] = { amount: 0, color: cColor }
+        acc[cName].amount += (exp.amount || 0)
+        return acc
+      }, {} as Record<string, { amount: number, color: string }>)
+      
+      // Top category by amount
+      const sortedCats = Object.keys(catsData).sort((a, b) => catsData[b].amount - catsData[a].amount)
+      topCategory = sortedCats[0] || '—'
+
+      // Prepare Category Data for Pie Chart
+      chartData.categoryData = sortedCats.map(cName => ({
+        name: cName,
+        value: catsData[cName].amount,
+        color: catsData[cName].color
+      }))
+
+      // Prepare Monthly Data for Bar Chart (last 6 months logic)
+      const monthsAcc = expenses.reduce((acc, exp) => {
+        const date = new Date(exp.transaction_date || exp.created_at)
+        const monthKey = date.toLocaleString('en-US', { month: 'short' })
+        acc[monthKey] = (acc[monthKey] || 0) + (exp.amount || 0)
+        return acc
+      }, {} as Record<string, number>)
+
+      // Ensure chronological order could be done properly, but for now we just use the keys present
+      chartData.monthlyData = Object.keys(monthsAcc).map(m => ({ month: m, amount: monthsAcc[m] }))
+    }
+  }
+
   const budgetPercent   = monthlyBudget > 0 ? Math.min((totalSpent / monthlyBudget) * 100, 100) : 0
   const remaining       = monthlyBudget - totalSpent
   const hasData         = totalSpent > 0
@@ -72,13 +148,13 @@ export default function OverviewPage() {
   const year            = now.getFullYear()
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-6xl animate-in fade-in duration-500">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Overview</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{monthName} {year}</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Overview</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{monthName} {year}</p>
         </div>
         <Link href="/dashboard/scanner">
           <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600
@@ -94,7 +170,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Total Spent"
-          value={`SAR ${totalSpent.toLocaleString()}`}
+          value={`SAR ${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           sub={`This month`}
           icon={TrendingDown}
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
@@ -118,7 +194,7 @@ export default function OverviewPage() {
         />
         <StatCard
           label="Budget Remaining"
-          value={monthlyBudget > 0 ? `SAR ${remaining.toLocaleString()}` : 'Not set'}
+          value={monthlyBudget > 0 ? `SAR ${remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not set'}
           sub={monthlyBudget > 0 ? `of SAR ${monthlyBudget.toLocaleString()}` : 'Set in Settings'}
           icon={Wallet}
           gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
@@ -128,23 +204,23 @@ export default function OverviewPage() {
 
       {/* ── Budget Progress ── */}
       {monthlyBudget > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-sm font-semibold text-slate-700">Monthly Budget</p>
-              <p className="text-xs text-slate-400">
-                SAR {totalSpent.toLocaleString()} spent of SAR {monthlyBudget.toLocaleString()}
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Monthly Budget</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                SAR {totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spent of SAR {monthlyBudget.toLocaleString()}
               </p>
             </div>
             <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${
-              budgetPercent >= 90 ? 'bg-red-100 text-red-600' :
-              budgetPercent >= 75 ? 'bg-amber-100 text-amber-600' :
-              'bg-emerald-100 text-emerald-600'
+              budgetPercent >= 90 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+              budgetPercent >= 75 ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+              'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
             }`}>
               {budgetPercent.toFixed(0)}%
             </span>
           </div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
                 budgetPercent >= 90 ? 'bg-red-500' :
@@ -161,13 +237,13 @@ export default function OverviewPage() {
       {!hasData ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Empty state card */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-dashed border-slate-200 p-10
+          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-10
                           flex flex-col items-center justify-center text-center gap-4">
-            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
+            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center">
               <Receipt className="w-8 h-8 text-emerald-500" />
             </div>
             <div>
-              <p className="text-base font-semibold text-slate-700">No expenses yet</p>
+              <p className="text-base font-semibold text-slate-700 dark:text-slate-200">No expenses yet</p>
               <p className="text-sm text-slate-400 mt-1">
                 Add your first expense manually or scan a receipt
               </p>
@@ -180,8 +256,8 @@ export default function OverviewPage() {
                 </button>
               </Link>
               <Link href="/dashboard/expenses">
-                <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200
-                                   text-slate-700 text-sm font-semibold rounded-xl transition-all">
+                <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700
+                                   text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-all">
                   <Plus className="w-4 h-4" /> Add Manually
                 </button>
               </Link>
@@ -191,46 +267,14 @@ export default function OverviewPage() {
           {/* Quick Actions */}
           <div className="space-y-3">
             <p className="text-sm font-semibold text-slate-500 px-1">Quick Actions</p>
-            <QuickAction
-              href="/dashboard/scanner"
-              icon={ScanLine}
-              label="Scan a Receipt"
-              description="Upload a photo and let AI extract the data"
-              color="bg-emerald-500"
-            />
-            <QuickAction
-              href="/dashboard/expenses"
-              icon={Plus}
-              label="Add Expense"
-              description="Enter expense details manually"
-              color="bg-violet-500"
-            />
-            <QuickAction
-              href="/dashboard/settings"
-              icon={Wallet}
-              label="Set Monthly Budget"
-              description="Define your spending limit"
-              color="bg-blue-500"
-            />
-            <QuickAction
-              href="/dashboard/categories"
-              icon={Tag}
-              label="Manage Categories"
-              description="Customize your expense categories"
-              color="bg-amber-500"
-            />
+            <QuickAction href="/dashboard/scanner" icon={ScanLine} label="Scan a Receipt" description="Upload a photo and let AI extract the data" color="bg-emerald-500" />
+            <QuickAction href="/dashboard/expenses" icon={Plus} label="Add Expense" description="Enter expense details manually" color="bg-violet-500" />
+            <QuickAction href="/dashboard/settings" icon={Wallet} label="Set Monthly Budget" description="Define your spending limit" color="bg-blue-500" />
+            <QuickAction href="/dashboard/categories" icon={Tag} label="Manage Categories" description="Customize your expense categories" color="bg-amber-500" />
           </div>
         </div>
       ) : (
-        // TODO (Day 3): Replace with real Recharts charts
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 h-64 flex items-center justify-center">
-            <p className="text-sm text-slate-400">Charts coming in Day 3…</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 h-64 flex items-center justify-center">
-            <p className="text-sm text-slate-400">Pie chart placeholder</p>
-          </div>
-        </div>
+        <OverviewCharts data={chartData} />
       )}
 
     </div>

@@ -9,6 +9,10 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useRouter } from '@/i18n/routing'
+import { scanReceipt } from '@/app/actions/scanReceipt'
+import { useExpenseStore } from '@/store/expenses'
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -37,34 +41,6 @@ type ScannedReceipt = AIResult & {
   status: 'Saved' | 'Pending'
 }
 
-// ─── Mock Services ──────────────────────────────────────────────────────────────
-
-const MOCK_CATEGORIES = ['Restaurants', 'Transport', 'Groceries', 'Utilities', 'Software', 'Travel']
-
-function simulateGeminiAI(file: File): Promise<AIResult> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Randomize features for demonstration
-      const isForeign = Math.random() > 0.7
-      const hasDuplicate = Math.random() > 0.8
-      const isLowConfidence = Math.random() > 0.6
-      
-      resolve({
-        merchant: isForeign ? 'Starbucks (DXB Airport)' : 'AWS Cloud Services',
-        amount: isForeign ? 15.50 : 249.99,
-        tax: isForeign ? 0.75 : 12.50,
-        date: new Date().toISOString().split('T')[0],
-        category: isForeign ? 'Restaurants' : 'Software',
-        original_currency: isForeign ? 'AED' : null,
-        converted_amount: isForeign ? 15.50 * 1.02 : null, // Mock SAR conversion
-        tags: isForeign ? ['BusinessTrip', 'Coffee'] : ['Infrastructure', 'Monthly'],
-        is_duplicate: hasDuplicate,
-        low_confidence_fields: isLowConfidence ? ['tax', 'merchant'] : [],
-      })
-    }, 2500)
-  })
-}
-
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 export function ScannerClient() {
@@ -73,16 +49,63 @@ export function ScannerClient() {
   // App States
   const [step, setStep] = useState<'upload' | 'preprocess' | 'analyzing' | 'review'>('upload')
   const [queue, setQueue] = useState<QueuedFile[]>([])
-  const [history, setHistory] = useState<ScannedReceipt[]>([
-    {
-      id: 'mock1', merchant: 'Uber', amount: 45.0, tax: 2.25, date: '2026-10-23', category: 'Transport',
-      original_currency: null, converted_amount: null, tags: ['Ride'], is_duplicate: false, low_confidence_fields: [], previewUrl: '', status: 'Saved'
-    }
-  ])
+
+  const { expenses: globalExpenses, categories: globalCategories, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
+  
+  // Get dynamic categories list
+  const uniqueCategories = globalCategories.length > 0 
+    ? Array.from(new Set(globalCategories.map(c => c.name)))
+    : ['Other']
+
+  useEffect(() => {
+    fetchExpenses()
+    fetchCategories()
+  }, [fetchExpenses, fetchCategories])
+  
+  // Computed Recent Scans from Global Store (Show latest 5 expenses since 'source' column doesn't exist in DB)
+  const recentScans = globalExpenses.slice(0, 5)
+
+  // Custom Modal State for replacing native browser alerts
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    type: 'alert' | 'confirm' | 'prompt';
+    title: string;
+    message: string;
+    defaultValue?: string;
+    onConfirm?: (val?: any) => void;
+    onCancel?: () => void;
+  }>({ isOpen: false, type: 'alert', title: '', message: '' })
+
+  const alertAsync = (title: string, message: string) => {
+    setModalState({ isOpen: true, type: 'alert', title, message, onConfirm: () => setModalState(prev => ({...prev, isOpen: false})) })
+  }
+
+  const confirmAsync = (title: string, message: string) => new Promise<boolean>(resolve => {
+    setModalState({
+      isOpen: true, type: 'confirm', title, message,
+      onConfirm: () => { setModalState(prev => ({...prev, isOpen: false})); resolve(true) },
+      onCancel: () => { setModalState(prev => ({...prev, isOpen: false})); resolve(false) }
+    })
+  })
+
+  const promptAsync = (title: string, message: string, defaultValue = '') => new Promise<string | null>(resolve => {
+    setModalState({
+      isOpen: true, type: 'prompt', title, message, defaultValue,
+      onConfirm: (val) => { setModalState(prev => ({...prev, isOpen: false})); resolve(val) },
+      onCancel: () => { setModalState(prev => ({...prev, isOpen: false})); resolve(null) }
+    })
+  })
 
   // Current Processing State
   const [isRedacted, setIsRedacted] = useState(false)
+  const [rotation, setRotation] = useState(0)
   const [aiData, setAiData] = useState<AIResult | null>(null)
+  
+  // Cropping State
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false)
+  const [crop, setCrop] = useState<Crop>()
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -96,7 +119,10 @@ export function ScannerClient() {
       previewUrl: URL.createObjectURL(file)
     }))
     setQueue(prev => [...prev, ...newFiles])
-    if (step === 'upload') setStep('preprocess')
+    if (step === 'upload') {
+      setStep('preprocess')
+      setRotation(0)
+    }
     
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -111,28 +137,84 @@ export function ScannerClient() {
       previewUrl: URL.createObjectURL(file)
     }))
     setQueue(prev => [...prev, ...newFiles])
-    if (step === 'upload') setStep('preprocess')
+    if (step === 'upload') {
+      setStep('preprocess')
+      setRotation(0)
+    }
   }
 
   const startAnalysis = async () => {
     if (!queue.length) return
     setStep('analyzing')
-    const result = await simulateGeminiAI(queue[0].file)
-    setAiData(result)
-    setStep('review')
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', queue[0].file)
+      
+      const response = await scanReceipt(formData)
+      
+      if (response.success && response.data) {
+         setAiData(response.data)
+         setStep('review')
+      } else {
+         alertAsync('Analysis Failed', response.error || 'Unknown error occurred')
+         setStep('preprocess')
+      }
+    } catch (e) {
+      console.error(e)
+      alertAsync('Error', 'Failed to connect to AI service.')
+      setStep('preprocess')
+    }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!aiData || !queue.length) return
     
-    const savedRecord: ScannedReceipt = {
-      id: Math.random().toString(36).substring(7),
-      ...aiData,
-      previewUrl: queue[0].previewUrl,
-      status: 'Saved'
+    // Check against global expenses for duplicates
+    const isDuplicateRecord = globalExpenses.some(
+      e => e.merchant.toLowerCase() === aiData.merchant.toLowerCase() &&
+           e.amount === aiData.amount &&
+           e.date.split('T')[0] === (aiData.date || '').split('T')[0]
+    )
+    
+    if (isDuplicateRecord) {
+      const proceed = window.confirm('⚠️ This receipt seems to be a duplicate (Same Merchant, Date, and Amount already exists). Do you want to save it anyway?')
+      if (!proceed) return
     }
     
-    setHistory(prev => [savedRecord, ...prev])
+    const expenseId = Math.random().toString(36).substring(7)
+    
+    // Convert file to base64 so it survives page reloads in localStorage
+    const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+    })
+    
+    let finalPreviewUrl = queue[0].previewUrl
+    try {
+      if (queue[0].file) {
+        finalPreviewUrl = await toBase64(queue[0].file)
+      }
+    } catch(e) {
+      console.error('Failed to convert to base64', e)
+    }
+    
+    // Globally Save Expense
+    addExpense({
+      id: expenseId,
+      merchant: aiData.merchant,
+      amount: aiData.amount,
+      tax: aiData.tax,
+      date: aiData.date,
+      category: aiData.category,
+      status: 'Saved',
+      source: 'Scanner',
+      currency: aiData.original_currency || 'SAR',
+      previewUrl: finalPreviewUrl,
+      fileType: queue[0].file.type
+    })
     
     // Move to next in queue
     const newQueue = queue.slice(1)
@@ -141,10 +223,12 @@ export function ScannerClient() {
     if (newQueue.length > 0) {
       setStep('preprocess')
       setIsRedacted(false)
+      setRotation(0)
       setAiData(null)
     } else {
       setStep('upload')
       setIsRedacted(false)
+      setRotation(0)
       setAiData(null)
     }
   }
@@ -158,7 +242,69 @@ export function ScannerClient() {
       setStep('upload')
     }
     setIsRedacted(false)
+    setRotation(0)
     setAiData(null)
+  }
+
+  // ─── Cropping Logic ───────────────────────────────────────────────────────────
+
+  const handleCropClick = () => {
+    if (queue[0]?.file.type === 'application/pdf') {
+       alertAsync('Not Supported', 'Cropping is currently only supported for image files (JPG/PNG).')
+       return
+    }
+    setIsCropModalOpen(true)
+  }
+
+  const getCroppedImg = async (image: HTMLImageElement, crop: PixelCrop, fileName: string): Promise<File> => {
+    const canvas = document.createElement('canvas')
+    const scaleX = image.naturalWidth / image.width
+    const scaleY = image.naturalHeight / image.height
+    canvas.width = crop.width
+    canvas.height = crop.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('No 2d context')
+    
+    // Apply rotation mathematically if needed, but for MVP we crop the unrotated image
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width,
+      crop.height
+    )
+    
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) return reject(new Error('Canvas is empty'))
+        resolve(new File([blob], fileName, { type: 'image/jpeg' }))
+      }, 'image/jpeg')
+    })
+  }
+
+  const handleApplyCrop = async () => {
+    if (!completedCrop || !imgRef.current || !queue[0]) return
+    try {
+      const croppedFile = await getCroppedImg(imgRef.current, completedCrop, queue[0].file.name)
+      const newPreviewUrl = URL.createObjectURL(croppedFile)
+      
+      setQueue(prev => {
+        const newQ = [...prev]
+        newQ[0] = { ...newQ[0], file: croppedFile, previewUrl: newPreviewUrl }
+        return newQ
+      })
+      
+      setIsCropModalOpen(false)
+      setCrop(undefined)
+      setCompletedCrop(null)
+    } catch (e) {
+      console.error('Crop failed', e)
+      alert('Failed to crop image')
+    }
   }
 
   const currentFile = queue[0]
@@ -197,7 +343,7 @@ export function ScannerClient() {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             Intelligent Scanner <Zap className="w-5 h-5 text-emerald-500 fill-emerald-500" />
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Powered by Gemini 1.5 Flash Vision</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Powered by Gemini 2.5 Flash Vision</p>
         </div>
         
         {/* Queue Indicator */}
@@ -257,7 +403,10 @@ export function ScannerClient() {
           <div className="flex-1 flex flex-col md:flex-row animate-in fade-in duration-300">
             {/* Image/PDF Preview Area */}
             <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-6 flex flex-col items-center justify-center relative overflow-hidden min-h-[300px]">
-              <div className="relative rounded-lg overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800 max-w-full w-full lg:max-w-xl h-full min-h-[400px] bg-white flex items-center justify-center">
+              <div 
+                className="relative rounded-lg overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800 max-w-full w-full lg:max-w-xl h-full min-h-[400px] bg-white flex items-center justify-center transition-transform duration-300"
+                style={{ transform: 'rotate(' + rotation + 'deg)' }}
+              >
                 {currentFile.file.type === 'application/pdf' ? (
                   <object data={currentFile.previewUrl} type="application/pdf" className="w-full h-full min-h-[400px]">
                     <div className="p-8 text-center flex flex-col items-center">
@@ -271,8 +420,8 @@ export function ScannerClient() {
                 )}
                 
                 {/* Simulated Auto-Redaction Box */}
-                {isRedacted && currentFile.file.type !== 'application/pdf' && (
-                  <div className="absolute top-[20%] left-[10%] w-[60%] h-[8%] backdrop-blur-md bg-black/40 rounded border border-white/20 flex items-center justify-center animate-in zoom-in">
+                {isRedacted && (
+                  <div className="absolute top-[20%] left-[10%] w-[60%] h-[8%] backdrop-blur-md bg-black/40 rounded border border-white/20 flex items-center justify-center animate-in zoom-in z-50 pointer-events-none">
                     <ShieldAlert className="w-4 h-4 text-white/80 mr-1" />
                     <span className="text-[10px] text-white/90 font-bold uppercase tracking-wider">Redacted</span>
                   </div>
@@ -285,11 +434,17 @@ export function ScannerClient() {
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6">Pre-processing</h3>
               
               <div className="space-y-4 flex-1">
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-left">
+                <button 
+                  onClick={handleCropClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-left"
+                >
                   <Crop className="w-4 h-4 text-slate-400" />
                   Crop Image
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-left">
+                <button 
+                  onClick={() => setRotation(prev => prev + 90)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-left"
+                >
                   <RotateCw className="w-4 h-4 text-slate-400" />
                   Rotate 90°
                 </button>
@@ -355,7 +510,7 @@ export function ScannerClient() {
               </div>
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Analyzing Document</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse text-center max-w-xs">
-                Gemini 1.5 Flash is extracting and securing data...
+                Gemini 2.5 Flash is extracting and securing data...
               </p>
             </div>
           </div>
@@ -377,8 +532,8 @@ export function ScannerClient() {
                  ) : (
                    <img src={currentFile.previewUrl} alt="Receipt" className="max-w-full max-h-[500px] object-contain" />
                  )}
-                 {isRedacted && currentFile.file.type !== 'application/pdf' && (
-                   <div className="absolute top-[20%] left-[10%] w-[60%] h-[8%] backdrop-blur-md bg-black/40 rounded border border-white/20 flex items-center justify-center">
+                 {isRedacted && (
+                   <div className="absolute top-[20%] left-[10%] w-[60%] h-[8%] backdrop-blur-md bg-black/40 rounded border border-white/20 flex items-center justify-center z-50">
                      <ShieldAlert className="w-4 h-4 text-white/80 mr-1" />
                      <span className="text-[10px] text-white/90 font-bold uppercase tracking-wider">Redacted</span>
                    </div>
@@ -390,13 +545,13 @@ export function ScannerClient() {
             <div className="w-full lg:w-7/12 bg-white dark:bg-slate-900 p-6 overflow-y-auto flex flex-col max-h-[700px]">
               
               {/* Duplicate Warning */}
-              {aiData.is_duplicate && (
+              {(aiData.is_duplicate || globalExpenses.some(e => e.merchant.toLowerCase() === aiData.merchant.toLowerCase() && e.amount === aiData.amount && e.date.split('T')[0] === (aiData.date || '').split('T')[0])) && (
                 <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 flex gap-3 animate-in slide-in-from-top-2">
                   <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-sm font-bold text-rose-900 dark:text-rose-300">Duplicate Detected</h4>
                     <p className="text-xs text-rose-700 dark:text-rose-400/80 mt-1 leading-relaxed">
-                      We found a similar expense logged recently. Please review carefully to avoid double-counting.
+                      We found a similar expense logged recently (Same Merchant, Amount, and Date). Please review carefully to avoid double-counting.
                     </p>
                   </div>
                 </div>
@@ -422,7 +577,10 @@ export function ScannerClient() {
                       onChange={(e) => setAiData({...aiData, category: e.target.value})}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100"
                     >
-                      {MOCK_CATEGORIES.map(cat => (
+                      {!uniqueCategories.includes(aiData.category) && (
+                         <option key={aiData.category} value={aiData.category}>{aiData.category} (New AI Suggestion)</option>
+                      )}
+                      {uniqueCategories.map(cat => (
                          <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
@@ -456,10 +614,23 @@ export function ScannerClient() {
                     {aiData.tags.map(tag => (
                       <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 group">
                         #{tag}
-                        <button className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
+                        <button 
+                          onClick={() => setAiData({...aiData, tags: aiData.tags.filter(t => t !== tag)})}
+                          className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </span>
                     ))}
-                    <button className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+                    <button 
+                      onClick={async () => {
+                        const newTag = await promptAsync('New Tag', 'Enter a new smart tag (e.g. business, travel):')
+                        if (newTag && !aiData.tags.includes(newTag.trim())) {
+                          setAiData({...aiData, tags: [...aiData.tags, newTag.replace('#', '').trim()]})
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                    >
                       <Plus className="w-3 h-3" /> Add
                     </button>
                   </div>
@@ -490,7 +661,17 @@ export function ScannerClient() {
 
       {/* ─── Recent Scans History ─── */}
       <div className="pt-6">
-        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Recent Scans</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Recent Scans</h3>
+          {globalExpenses.length > 5 && (
+            <button 
+              onClick={() => router.push('/dashboard/expenses')}
+              className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+            >
+              View All
+            </button>
+          )}
+        </div>
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -504,12 +685,16 @@ export function ScannerClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                {history.length > 0 ? history.map((item, i) => (
+                {recentScans.length > 0 ? recentScans.slice(0, 5).map((item, i) => (
                   <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
-                           {item.previewUrl ? <img src={item.previewUrl} className="w-full h-full object-cover" /> : <FileText className="w-4 h-4 text-slate-400" />}
+                           {item.previewUrl && item.fileType !== 'application/pdf' ? (
+                             <img src={item.previewUrl} className="w-full h-full object-cover" />
+                           ) : (
+                             <FileText className="w-4 h-4 text-slate-400" />
+                           )}
                         </div>
                         <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.merchant}</span>
                       </div>
@@ -525,13 +710,30 @@ export function ScannerClient() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors">
+                        {item.previewUrl && (
+                          <button 
+                            onClick={() => window.open(item.previewUrl, '_blank')}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={async () => {
+                            const newMerchant = await promptAsync('Edit Merchant Name', 'Enter the new merchant name:', item.merchant);
+                            if (newMerchant) updateExpense(item.id, { merchant: newMerchant });
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+                        <button 
+                          onClick={async () => {
+                            const proceed = await confirmAsync('Confirm Deletion', 'Are you sure you want to delete this scan?');
+                            if(proceed) removeExpense(item.id);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -540,7 +742,7 @@ export function ScannerClient() {
                 )) : (
                   <tr>
                     <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-500">
-                      No recent scans.
+                      No recent scans. Upload a receipt to get started!
                     </td>
                   </tr>
                 )}
@@ -549,6 +751,107 @@ export function ScannerClient() {
           </div>
         </div>
       </div>
+      {/* ─── Crop Modal ─── */}
+      {isCropModalOpen && currentFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Crop className="w-5 h-5 text-emerald-500" /> Crop Image
+              </h2>
+              <button 
+                onClick={() => setIsCropModalOpen(false)}
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+              <ReactCrop
+                crop={crop}
+                onChange={c => setCrop(c)}
+                onComplete={c => setCompletedCrop(c)}
+                className="max-h-full"
+              >
+                <img 
+                  ref={imgRef}
+                  src={currentFile.previewUrl} 
+                  alt="Crop preview" 
+                  className="max-h-[60vh] object-contain"
+                />
+              </ReactCrop>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-white dark:bg-slate-900">
+              <button 
+                onClick={() => setIsCropModalOpen(false)}
+                className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleApplyCrop}
+                className="px-6 py-2.5 rounded-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
+              >
+                Apply Crop
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Custom Modal UI ─── */}
+      {modalState.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 flex flex-col animate-in zoom-in-95">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{modalState.title}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{modalState.message}</p>
+            
+            {modalState.type === 'prompt' && (
+              <input
+                autoFocus
+                type="text"
+                defaultValue={modalState.defaultValue}
+                id="custom-prompt-input"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-6"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') modalState.onConfirm?.((e.target as HTMLInputElement).value)
+                }}
+              />
+            )}
+
+            <div className="flex items-center justify-end gap-3 mt-auto">
+              {modalState.type !== 'alert' && (
+                <button 
+                  onClick={() => modalState.onCancel?.()}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  if (modalState.type === 'prompt') {
+                    const val = (document.getElementById('custom-prompt-input') as HTMLInputElement).value
+                    modalState.onConfirm?.(val)
+                  } else {
+                    modalState.onConfirm?.()
+                  }
+                }}
+                className={clsx(
+                  "px-5 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md transition-all hover:-translate-y-0.5",
+                  modalState.type === 'alert' ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/20" : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20"
+                )}
+              >
+                {modalState.type === 'alert' ? 'OK' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

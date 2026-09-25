@@ -80,6 +80,7 @@
     "danger_desc": "This action cannot be undone. All your expenses, receipts, and settings will be permanently deleted.",
     "type_delete": "Type DELETE to confirm",
     "delete_btn": "Delete Account",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "logout": "Sign Out"
   }
 }

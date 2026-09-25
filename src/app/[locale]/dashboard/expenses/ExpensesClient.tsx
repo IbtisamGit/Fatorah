@@ -1,86 +1,72 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  Search,
-  Filter,
-  Plus,
-  Edit2,
-  Trash2,
-  Receipt,
-  ShoppingCart,
-  Coffee,
-  Car,
-  Home,
-  Zap,
-  Tag,
-  Camera,
-  PenLine
+  Search, Filter, Plus, Edit2, Trash2, Receipt, Tag, Camera, PenLine
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useRouter } from '@/i18n/routing'
+import { useExpenseStore } from '@/store/expenses'
+import * as LucideIcons from 'lucide-react'
 
-// ─── Types & Mock Data ──────────────────────────────────────────────────────────
-
-type Category = {
-  name: string
-  colorClass: string
-  bgClass: string
-  icon: React.ElementType
+// Helper to get consistent dynamic category styles from global store categories
+const getCategoryStyle = (catName: string, globalCategories: any[]) => {
+  const cat = globalCategories.find(c => c.name.toLowerCase() === catName.toLowerCase())
+  if (cat) {
+    return {
+      name: cat.name,
+      colorHex: cat.color_hex,
+      iconName: cat.icon_name
+    }
+  }
+  return { name: catName, colorHex: '#94a3b8', iconName: 'Tag' }
 }
-
-type Expense = {
-  id: string
-  merchant: string
-  date: string
-  amount: number
-  category: Category
-}
-
-const CATEGORIES: Record<string, Category> = {
-  Groceries: { name: 'Groceries', colorClass: 'text-emerald-700 dark:text-emerald-400', bgClass: 'bg-emerald-100 dark:bg-emerald-900/40', icon: ShoppingCart },
-  Restaurants: { name: 'Restaurants', colorClass: 'text-amber-700 dark:text-amber-400', bgClass: 'bg-amber-100 dark:bg-amber-900/40', icon: Coffee },
-  Transport: { name: 'Transport', colorClass: 'text-blue-700 dark:text-blue-400', bgClass: 'bg-blue-100 dark:bg-blue-900/40', icon: Car },
-  Housing: { name: 'Housing', colorClass: 'text-indigo-700 dark:text-indigo-400', bgClass: 'bg-indigo-100 dark:bg-indigo-900/40', icon: Home },
-  Utilities: { name: 'Utilities', colorClass: 'text-purple-700 dark:text-purple-400', bgClass: 'bg-purple-100 dark:bg-purple-900/40', icon: Zap },
-  Other: { name: 'Other', colorClass: 'text-slate-700 dark:text-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', icon: Tag },
-}
-
-const INITIAL_EXPENSES: Expense[] = [
-  { id: '1', merchant: 'Walmart Supercenter', date: '2026-10-24', amount: 156.40, category: CATEGORIES.Groceries },
-  { id: '2', merchant: 'Uber Rides', date: '2026-10-23', amount: 24.50, category: CATEGORIES.Transport },
-  { id: '3', merchant: 'Starbucks', date: '2026-10-23', amount: 8.20, category: CATEGORIES.Restaurants },
-  { id: '4', merchant: 'Monthly Rent', date: '2026-10-01', amount: 1200.00, category: CATEGORIES.Housing },
-  { id: '5', merchant: 'Electric Bill', date: '2026-10-15', amount: 85.00, category: CATEGORIES.Utilities },
-]
-
-// ─── Main Component ─────────────────────────────────────────────────────────────
 
 export function ExpensesClient() {
   const router = useRouter()
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES)
+  const { expenses: globalExpenses, categories: globalCategories, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
+  
+  useEffect(() => {
+    fetchExpenses()
+    fetchCategories()
+  }, [fetchExpenses, fetchCategories])
+  
+  // Map global store format to local format for display
+  const expenses = globalExpenses.map(ge => {
+    const style = getCategoryStyle(ge.category, globalCategories)
+    return {
+      id: ge.id,
+      merchant: ge.merchant,
+      date: ge.date.split('T')[0],
+      amount: ge.amount,
+      categoryName: style.name,
+      categoryColor: style.colorHex,
+      categoryIcon: style.iconName,
+      previewUrl: ge.previewUrl
+    }
+  })
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState<string>('All')
+
+  // Unique categories for the filter dropdown
+  const uniqueCategories = Array.from(new Set(globalCategories.map(c => c.name)))
 
   // Modal State
   const [isSelectionOpen, setIsSelectionOpen] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+  const [editingExpense, setEditingExpense] = useState<any | null>(null)
   
   // Form State
   const [formData, setFormData] = useState({
     merchant: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    category: 'Other'
+    category: uniqueCategories[0] || 'Other'
   })
 
-  // Open selection modal
-  const handleAddClick = () => {
-    setIsSelectionOpen(true)
-  }
+  const handleAddClick = () => setIsSelectionOpen(true)
 
-  // Open manual entry modal
   const openManualModal = () => {
     setIsSelectionOpen(false)
     setEditingExpense(null)
@@ -88,57 +74,52 @@ export function ExpensesClient() {
       merchant: '',
       amount: '',
       date: new Date().toISOString().split('T')[0],
-      category: 'Other'
+      category: uniqueCategories[0] || 'Other'
     })
     setIsModalOpen(true)
   }
 
-  // Open modal for edit
-  const handleEditClick = (expense: Expense) => {
+  const handleEditClick = (expense: any) => {
     setEditingExpense(expense)
     setFormData({
       merchant: expense.merchant,
       amount: expense.amount.toString(),
       date: expense.date,
-      category: Object.keys(CATEGORIES).find(key => CATEGORIES[key].name === expense.category.name) || 'Other'
+      category: expense.categoryName
     })
     setIsModalOpen(true)
   }
 
-  // Delete expense
   const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this expense?')) {
-      setExpenses(prev => prev.filter(e => e.id !== id))
+      removeExpense(id)
     }
   }
 
-  // Save form (Create or Update)
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.merchant || !formData.amount) return
 
-    const selectedCat = CATEGORIES[formData.category] || CATEGORIES.Other
     const amountNum = parseFloat(formData.amount)
 
     if (editingExpense) {
-      // Update existing
-      setExpenses(prev => prev.map(exp => exp.id === editingExpense.id ? {
-        ...exp,
+      updateExpense(editingExpense.id, {
         merchant: formData.merchant,
         amount: amountNum,
         date: formData.date,
-        category: selectedCat
-      } : exp))
+        category: formData.category
+      })
     } else {
-      // Create new
-      const newExpense: Expense = {
+      addExpense({
         id: Math.random().toString(36).substring(7),
         merchant: formData.merchant,
         amount: amountNum,
         date: formData.date,
-        category: selectedCat
-      }
-      setExpenses(prev => [newExpense, ...prev])
+        category: formData.category,
+        tax: 0,
+        status: 'Saved',
+        source: 'Manual'
+      })
     }
     setIsModalOpen(false)
   }
@@ -146,7 +127,7 @@ export function ExpensesClient() {
   // Filter logic
   const filteredExpenses = expenses.filter(exp => {
     const matchesSearch = exp.merchant.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = filterCategory === 'All' || exp.category.name === filterCategory
+    const matchesCategory = filterCategory === 'All' || exp.categoryName === filterCategory
     return matchesSearch && matchesCategory
   })
 
@@ -157,6 +138,7 @@ export function ExpensesClient() {
 
   // Format date
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'Unknown Date'
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
@@ -199,7 +181,7 @@ export function ExpensesClient() {
                 className="appearance-none pl-10 pr-8 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors cursor-pointer"
               >
                 <option value="All">All Categories</option>
-                {Object.keys(CATEGORIES).map(cat => (
+                {uniqueCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -234,7 +216,7 @@ export function ExpensesClient() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map(expense => {
-                  const CatIcon = expense.category.icon
+                  const CatIcon = (LucideIcons as any)[expense.categoryIcon] || Tag
                   return (
                     <tr 
                       key={expense.id} 
@@ -242,12 +224,16 @@ export function ExpensesClient() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
-                            <Receipt className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                            {expense.previewUrl ? (
+                              <img src={expense.previewUrl} className="w-full h-full object-cover" />
+                            ) : (
+                              <Receipt className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                            )}
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{expense.merchant}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: #{expense.id.padStart(5, '0')}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: #{expense.id.split('-')[0] || expense.id.padStart(5, '0')}</p>
                           </div>
                         </div>
                       </td>
@@ -257,13 +243,12 @@ export function ExpensesClient() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={clsx(
-                          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/20',
-                          expense.category.bgClass,
-                          expense.category.colorClass
-                        )}>
+                        <span 
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/20"
+                          style={{ backgroundColor: expense.categoryColor + '20', color: expense.categoryColor }}
+                        >
                           <CatIcon className="w-3.5 h-3.5" />
-                          {expense.category.name}
+                          {expense.categoryName}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
