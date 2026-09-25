@@ -64,7 +64,7 @@ export function OverviewCharts({ data }: { data: ChartData }) {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                    formatter={(value: number) => [`SAR ${value.toFixed(2)}`, 'Amount']}
+                    formatter={(value: any) => [`SAR ${Number(value).toFixed(2)}`, 'Amount']}
                   />
                 </PieChart>
               </ResponsiveContainer>

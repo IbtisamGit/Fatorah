@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Search, Filter, Plus, Edit2, Trash2, Receipt, Tag, Camera, PenLine
+  Search, Filter, Plus, Edit2, Trash2, Receipt, Tag, Camera, PenLine, CalendarDays
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useRouter } from '@/i18n/routing'
@@ -48,9 +48,19 @@ export function ExpensesClient() {
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState<string>('All')
+  const [filterMonth, setFilterMonth] = useState<string>('All')
 
   // Unique categories for the filter dropdown
   const uniqueCategories = Array.from(new Set(globalCategories.map(c => c.name)))
+  
+  // Unique months (YYYY-MM) for the date filter dropdown
+  const uniqueMonths = Array.from(new Set(expenses.map(e => e.date.substring(0, 7)))).sort().reverse()
+  
+  const formatMonth = (yyyy_mm: string) => {
+    const [year, month] = yyyy_mm.split('-')
+    const date = new Date(parseInt(year), parseInt(month) - 1)
+    return date.toLocaleString('en-US', { month: 'long', year: 'numeric' })
+  }
 
   // Modal State
   const [isSelectionOpen, setIsSelectionOpen] = useState(false)
@@ -125,7 +135,8 @@ export function ExpensesClient() {
   const filteredExpenses = expenses.filter(exp => {
     const matchesSearch = exp.merchant.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = filterCategory === 'All' || exp.categoryName === filterCategory
-    return matchesSearch && matchesCategory
+    const matchesMonth = filterMonth === 'All' || exp.date.startsWith(filterMonth)
+    return matchesSearch && matchesCategory && matchesMonth
   })
 
   // Format currency
@@ -184,6 +195,23 @@ export function ExpensesClient() {
               </select>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Filter className="h-4 w-4 text-slate-400" />
+              </div>
+            </div>
+
+            {/* Date Filter Dropdown */}
+            <div className="relative hidden sm:block">
+              <select
+                value={filterMonth}
+                onChange={e => setFilterMonth(e.target.value)}
+                className="appearance-none pl-10 pr-8 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors cursor-pointer"
+              >
+                <option value="All">All Time</option>
+                {uniqueMonths.map(month => (
+                  <option key={month} value={month}>{formatMonth(month)}</option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <CalendarDays className="h-4 w-4 text-slate-400" />
               </div>
             </div>
           </div>

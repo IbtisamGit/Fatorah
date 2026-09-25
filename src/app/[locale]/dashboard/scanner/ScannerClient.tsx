@@ -11,7 +11,7 @@ import clsx from 'clsx'
 import { useRouter } from '@/i18n/routing'
 import { scanReceipt } from '@/app/actions/scanReceipt'
 import { useExpenseStore } from '@/store/expenses'
-import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
+import ReactCrop, { type Crop as ReactCropType, type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export function ScannerClient() {
   
   // Cropping State
   const [isCropModalOpen, setIsCropModalOpen] = useState(false)
-  const [crop, setCrop] = useState<Crop>()
+  const [crop, setCrop] = useState<ReactCropType>()
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   
@@ -320,7 +320,7 @@ export function ScannerClient() {
       <div className="relative">
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-2">
           {label}
-          {isLowConf && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" title="Low Confidence - Please Verify" />}
+          {isLowConf && <span title="Low Confidence - Please Verify"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /></span>}
         </label>
         <input
           type={type}
