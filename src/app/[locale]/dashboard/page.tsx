@@ -59,12 +59,32 @@ function QuickAction({
 
 import { createClient } from '@/utils/supabase/server'
 import { OverviewCharts } from './OverviewCharts'
+import { OverviewFilters } from './OverviewFilters'
+import { Suspense } from 'react'
+import { CalendarDays } from 'lucide-react'
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default async function OverviewPage() {
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; month?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
+  // searchParams is a Promise in this Next.js version — must await it
+  const resolvedParams = await searchParams
+
+  // Resolve year/month from URL params or default to current month
+  const now = new Date()
+  const selectedYear  = resolvedParams.year  ? parseInt(resolvedParams.year)  : now.getFullYear()
+  const selectedMonth = resolvedParams.month ? parseInt(resolvedParams.month) : now.getMonth() + 1
+
+  // Clamp: don't allow future months
+  const isCurrentMonth = selectedYear === now.getFullYear() && selectedMonth === now.getMonth() + 1
+  const isFuture = selectedYear > now.getFullYear() || 
+                   (selectedYear === now.getFullYear() && selectedMonth > now.getMonth() + 1)
+
   let totalSpent = 0
   let receiptCount = 0
   let topCategory = '—'
@@ -75,7 +95,7 @@ export default async function OverviewPage() {
     categoryData: [] as { name: string, value: number, color: string }[]
   }
 
-  if (user) {
+  if (user && !isFuture) {
     // Fetch User Profile for Budget
     const { data: profile } = await supabase
       .from('users')
@@ -87,83 +107,90 @@ export default async function OverviewPage() {
       monthlyBudget = profile.monthly_budget_limit
     }
 
-    // Fetch Expenses and Categories
+    // Compute selected month date range
+    const monthStart = new Date(selectedYear, selectedMonth - 1, 1).toISOString()
+    const monthEnd   = new Date(selectedYear, selectedMonth, 0, 23, 59, 59).toISOString()
+
+    // Fetch Expenses and Categories for selected month
     const [{ data: expenses }, { data: categories }] = await Promise.all([
-      supabase.from('expenses').select('*').eq('user_id', user.id),
+      supabase.from('expenses').select('*').eq('user_id', user.id)
+        .gte('transaction_date', monthStart)
+        .lte('transaction_date', monthEnd),
       supabase.from('categories').select('*')
     ])
       
     if (expenses && expenses.length > 0) {
-      totalSpent = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
+      totalSpent   = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
       receiptCount = expenses.length
       
       const catsData = expenses.reduce((acc, exp) => {
-        // Map category_id back to name
         const cId = exp.category_id
-        let cName = 'Other'
+        let cName  = 'Other'
         let cColor = '#94a3b8'
-        
         if (categories && cId) {
           const match = categories.find(c => c.id === cId)
-          if (match) {
-            cName = match.name
-            cColor = match.color_hex
-          }
+          if (match) { cName = match.name; cColor = match.color_hex }
         }
-        
         if (!acc[cName]) acc[cName] = { amount: 0, color: cColor }
         acc[cName].amount += (exp.amount || 0)
         return acc
       }, {} as Record<string, { amount: number, color: string }>)
       
-      // Top category by amount
       const sortedCats = Object.keys(catsData).sort((a, b) => catsData[b].amount - catsData[a].amount)
       topCategory = sortedCats[0] || '—'
 
-      // Prepare Category Data for Pie Chart
       chartData.categoryData = sortedCats.map(cName => ({
         name: cName,
         value: catsData[cName].amount,
         color: catsData[cName].color
       }))
 
-      // Prepare Monthly Data for Bar Chart (last 6 months logic)
       const monthsAcc = expenses.reduce((acc, exp) => {
-        const date = new Date(exp.transaction_date || exp.created_at)
+        const date     = new Date(exp.transaction_date || exp.created_at)
         const monthKey = date.toLocaleString('en-US', { month: 'short' })
-        acc[monthKey] = (acc[monthKey] || 0) + (exp.amount || 0)
+        acc[monthKey]  = (acc[monthKey] || 0) + (exp.amount || 0)
         return acc
       }, {} as Record<string, number>)
 
-      // Ensure chronological order could be done properly, but for now we just use the keys present
       chartData.monthlyData = Object.keys(monthsAcc).map(m => ({ month: m, amount: monthsAcc[m] }))
     }
   }
 
-  const budgetPercent   = monthlyBudget > 0 ? Math.min((totalSpent / monthlyBudget) * 100, 100) : 0
-  const remaining       = monthlyBudget - totalSpent
-  const hasData         = totalSpent > 0
-  const now             = new Date()
-  const monthName       = now.toLocaleString('en', { month: 'long' })
-  const year            = now.getFullYear()
+  const budgetPercent = monthlyBudget > 0 ? Math.min((totalSpent / monthlyBudget) * 100, 100) : 0
+  const remaining     = monthlyBudget - totalSpent
+  const hasData       = totalSpent > 0
+
+  const MONTH_NAMES = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December']
+  const displayMonthName = MONTH_NAMES[selectedMonth - 1]
 
   return (
     <div className="space-y-6 max-w-6xl animate-in fade-in duration-500">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Overview</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{monthName} {year}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            {displayMonthName} {selectedYear}
+            {isCurrentMonth && <span className="ml-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">Current</span>}
+          </p>
         </div>
-        <Link href="/dashboard/scanner">
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600
-                             text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/25
-                             transition-all hover:-translate-y-0.5">
-            <ScanLine className="w-4 h-4" />
-            Scan Receipt
-          </button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Suspense fallback={
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm w-[170px] h-9 animate-pulse">
+              <CalendarDays className="w-4 h-4 text-slate-300" />
+            </div>
+          }>
+            <OverviewFilters year={selectedYear} month={selectedMonth} />
+          </Suspense>
+          <Link href="/dashboard/scanner">
+            <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/25 transition-all hover:-translate-y-0.5">
+              <ScanLine className="w-4 h-4" />
+              Scan Receipt
+            </button>
+          </Link>
+        </div>
       </div>
 
       {/* ── Stat Cards ── */}
@@ -171,7 +198,7 @@ export default async function OverviewPage() {
         <StatCard
           label="Total Spent"
           value={`SAR ${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          sub={`This month`}
+          sub={displayMonthName}
           icon={TrendingDown}
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
           iconBg="bg-white/20"
@@ -179,7 +206,7 @@ export default async function OverviewPage() {
         <StatCard
           label="Receipts Scanned"
           value={receiptCount.toString()}
-          sub="This month"
+          sub={displayMonthName}
           icon={Receipt}
           gradient="bg-gradient-to-br from-violet-500 to-purple-600"
           iconBg="bg-white/20"
@@ -243,9 +270,13 @@ export default async function OverviewPage() {
               <Receipt className="w-8 h-8 text-emerald-500" />
             </div>
             <div>
-              <p className="text-base font-semibold text-slate-700 dark:text-slate-200">No expenses yet</p>
+              <p className="text-base font-semibold text-slate-700 dark:text-slate-200">
+                No expenses in {displayMonthName} {selectedYear}
+              </p>
               <p className="text-sm text-slate-400 mt-1">
-                Add your first expense manually or scan a receipt
+                {isCurrentMonth
+                  ? 'Add your first expense manually or scan a receipt.'
+                  : 'No expenses were recorded in this month.'}
               </p>
             </div>
             <div className="flex gap-3">

@@ -40,7 +40,7 @@ type ExpenseStore = {
 export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   expenses: [],
   categories: [],
-  isLoading: false,
+  isLoading: true, // start true — skeleton shows immediately, never flashes "empty"
   
   fetchCategories: async () => {
     const supabase = createClient()

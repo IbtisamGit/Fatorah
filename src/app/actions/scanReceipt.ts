@@ -32,24 +32,29 @@ export async function scanReceipt(formData: FormData) {
     const prompt = `
       You are an expert OCR AI specializing in global receipts and invoices.
       Analyze the attached document and extract the following information.
-      Return the output ONLY as a valid JSON object. No markdown wrapping.
+      Return the output ONLY as a valid JSON object. No markdown wrapping, no extra text.
       
       The JSON structure MUST perfectly match this structure:
       {
-        "merchant": "Name of the merchant/store",
-        "amount": 150.00, // Total amount as a number
-        "tax": 15.00, // Total tax/VAT amount as a number (0 if none)
-        "date": "YYYY-MM-DD", // Date of the receipt
-        "category": "one of: Restaurants, Transport, Groceries, Utilities, Software, Travel, Other",
-        "original_currency": "Currency code (e.g., USD, AED, EUR). Null if not found or if SAR.",
-        "converted_amount": 150.00, // Number. If original_currency is not SAR, provide estimated conversion to SAR. Otherwise null.
-        "tags": ["tag1", "tag2"], // Generate 1-3 contextual tags like BusinessTrip, Breakfast, SaaS, etc.
-        "is_duplicate": false, // Always false for now
-        "low_confidence_fields": [] // Array of field names (e.g. 'amount', 'merchant', 'date') you are not confident about extracting accurately.
+        "merchant": "Full name of the merchant/store/restaurant",
+        "amount": 150.00,
+        "tax": 15.00,
+        "date": "YYYY-MM-DD",
+        "category": "A single short descriptive category name (e.g. Restaurants, Groceries, Transport, Utilities, Healthcare, Entertainment, Shopping, Travel, Education, Other). Choose the most fitting one.",
+        "original_currency": "3-letter currency code if NOT SAR (e.g. USD, AED, EUR). Use null if SAR or unknown.",
+        "converted_amount": null,
+        "tags": ["tag1", "tag2"],
+        "is_duplicate": false,
+        "low_confidence_fields": []
       }
       
-      Do not include any text outside the JSON object. 
-      Ensure numeric values are returned as numbers, not strings.
+      Rules:
+      - amount and tax must be numbers (not strings).
+      - date must be in YYYY-MM-DD format. If not found, use today's date.
+      - category must be a short English noun phrase — no symbols or long sentences.
+      - tags: generate 1-3 short contextual tags (e.g. business, lunch, subscription).
+      - low_confidence_fields: list field names you are unsure about (e.g. ["amount", "date"]).
+      - Do NOT include any text outside the JSON object.
     `
     
     const result = await model.generateContent([prompt, imagePart])

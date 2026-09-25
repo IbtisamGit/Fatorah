@@ -178,7 +178,10 @@ export function ScannerClient() {
     )
     
     if (isDuplicateRecord) {
-      const proceed = window.confirm('⚠️ This receipt seems to be a duplicate (Same Merchant, Date, and Amount already exists). Do you want to save it anyway?')
+      const proceed = await confirmAsync(
+        '⚠️ Duplicate Detected',
+        'A very similar expense already exists (same merchant, amount, and date). Are you sure you want to save it anyway?'
+      )
       if (!proceed) return
     }
     
@@ -303,7 +306,7 @@ export function ScannerClient() {
       setCompletedCrop(null)
     } catch (e) {
       console.error('Crop failed', e)
-      alert('Failed to crop image')
+      alertAsync('Crop Failed', 'Could not process the image. Please try again.')
     }
   }
 
@@ -699,7 +702,7 @@ export function ScannerClient() {
                         <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.merchant}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{item.date}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-slate-100">
                       ${item.amount.toFixed(2)}
                     </td>

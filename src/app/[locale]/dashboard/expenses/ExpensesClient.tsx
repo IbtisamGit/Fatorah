@@ -24,7 +24,7 @@ const getCategoryStyle = (catName: string, globalCategories: any[]) => {
 
 export function ExpensesClient() {
   const router = useRouter()
-  const { expenses: globalExpenses, categories: globalCategories, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
+  const { expenses: globalExpenses, categories: globalCategories, isLoading, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
   
   useEffect(() => {
     fetchExpenses()
@@ -90,11 +90,8 @@ export function ExpensesClient() {
     setIsModalOpen(true)
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this expense?')) {
-      removeExpense(id)
-    }
-  }
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const handleDelete = (id: string) => setDeleteId(id)
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -214,7 +211,26 @@ export function ExpensesClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-              {filteredExpenses.length > 0 ? (
+              {isLoading ? (
+                // Skeleton loading rows — prevents "No expenses" flash
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                        <div className="space-y-2">
+                          <div className="h-3.5 w-32 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" />
+                          <div className="h-2.5 w-20 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4"><div className="h-3 w-24 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-20 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" /></td>
+                    <td className="px-6 py-4"><div className="h-3.5 w-16 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" /></td>
+                    <td className="px-6 py-4"></td>
+                  </tr>
+                ))
+              ) : filteredExpenses.length > 0 ? (
                 filteredExpenses.map(expense => {
                   const CatIcon = (LucideIcons as any)[expense.categoryIcon] || Tag
                   return (
@@ -421,8 +437,11 @@ export function ExpensesClient() {
                   value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:text-slate-100 cursor-pointer"
                 >
-                  {Object.keys(CATEGORIES).map(cat => (
-                    <option key={cat} value={cat}>{CATEGORIES[cat].name}</option>
+                  {uniqueCategories.length === 0 && (
+                    <option value="Other">Other</option>
+                  )}
+                  {uniqueCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
@@ -442,6 +461,37 @@ export function ExpensesClient() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Delete Expense</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { removeExpense(deleteId); setDeleteId(null) }}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition-colors"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
