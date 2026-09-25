@@ -90,14 +90,28 @@ export function CategoriesClient() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {categories.map(cat => {
           // Dynamically load the lucide icon component
-          const IconComponent = (LucideIcons as any)[cat.icon_name] || Tag
+          const IconComponent = (LucideIcons as any)[cat.icon_name || 'Tag'] || Tag
+          
+          let adjustedColor = cat.color_hex || '#94a3b8'
+          if (adjustedColor.length >= 7) {
+            let r = parseInt(adjustedColor.slice(1, 3), 16)
+            let g = parseInt(adjustedColor.slice(3, 5), 16)
+            let b = parseInt(adjustedColor.slice(5, 7), 16)
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+            if (luminance < 0.3) {
+              r = Math.min(255, r + 100)
+              g = Math.min(255, g + 100)
+              b = Math.min(255, b + 100)
+              adjustedColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+            }
+          }
 
           return (
             <div key={cat.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-emerald-500/30 transition-colors">
               <div className="flex items-center gap-4">
                 <div 
                   className="w-12 h-12 rounded-xl flex items-center justify-center bg-opacity-10 dark:bg-opacity-20"
-                  style={{ backgroundColor: cat.color_hex + '20', color: cat.color_hex }}
+                  style={{ backgroundColor: adjustedColor + '20', color: adjustedColor }}
                 >
                   <IconComponent className="w-6 h-6" />
                 </div>

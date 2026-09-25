@@ -8,6 +8,17 @@ export async function scanReceipt(formData: FormData) {
     if (!file) {
       throw new Error('No file provided')
     }
+    
+    let categoriesList = 'Restaurants, Groceries, Transport, Utilities, Healthcare, Entertainment, Shopping, Travel, Education, Other'
+    const catsStr = formData.get('categories') as string
+    if (catsStr) {
+      try {
+        const parsedCats = JSON.parse(catsStr)
+        if (Array.isArray(parsedCats) && parsedCats.length > 0) {
+          categoriesList = parsedCats.join(', ')
+        }
+      } catch (e) {}
+    }
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
@@ -40,7 +51,7 @@ export async function scanReceipt(formData: FormData) {
         "amount": 150.00,
         "tax": 15.00,
         "date": "YYYY-MM-DD",
-        "category": "A single short descriptive category name (e.g. Restaurants, Groceries, Transport, Utilities, Healthcare, Entertainment, Shopping, Travel, Education, Other). Choose the most fitting one.",
+        "category": "A single short descriptive category name. Prioritize choosing EXACTLY from this list: [${categoriesList}]. If none fit, you may invent a new short category.",
         "original_currency": "3-letter currency code if NOT SAR (e.g. USD, AED, EUR). Use null if SAR or unknown.",
         "converted_amount": null,
         "tags": ["tag1", "tag2"],
@@ -49,11 +60,11 @@ export async function scanReceipt(formData: FormData) {
       }
       
       Rules:
-      - amount and tax must be numbers (not strings).
+      - amount and tax must be numbers (not strings). If the amount is completely missing, unreadable, or redacted, return 0. Do NOT guess random numbers from unrelated fields like phone numbers or IDs.
       - date must be in YYYY-MM-DD format. If not found, use today's date.
       - category must be a short English noun phrase — no symbols or long sentences.
       - tags: generate 1-3 short contextual tags (e.g. business, lunch, subscription).
-      - low_confidence_fields: list field names you are unsure about (e.g. ["amount", "date"]).
+      - low_confidence_fields: list field names you are unsure about, especially if they were redacted or missing (e.g. ["amount", "date"]).
       - Do NOT include any text outside the JSON object.
     `
     

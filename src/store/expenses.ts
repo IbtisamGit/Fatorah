@@ -63,8 +63,18 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     if (exps && !error) {
       if (cats) set({ categories: cats })
       
-      const mapped = exps.map(e => {
+      const mapped = await Promise.all(exps.map(async (e) => {
         const cat = cats?.find(c => c.id === e.category_id)
+        
+        let previewUrl = e.receipt_url
+        // If it's a private bucket path (e.g. uuid/filename.jpg) instead of an http URL or base64
+        if (e.receipt_url && !e.receipt_url.startsWith('http') && !e.receipt_url.startsWith('data:')) {
+          const { data } = await supabase.storage.from('receipts').createSignedUrl(e.receipt_url, 60 * 60 * 24) // 24 hours
+          if (data?.signedUrl) {
+            previewUrl = data.signedUrl
+          }
+        }
+        
         return {
           id: e.id,
           merchant: e.merchant_name || 'Unknown',
@@ -73,9 +83,10 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
           category: cat ? cat.name : 'Other',
           tax: 0,
           status: 'Saved',
-          source: 'Manual'
+          source: 'Manual',
+          previewUrl
         } as Expense
-      })
+      }))
       set({ expenses: mapped, isLoading: false })
     } else {
       console.error('Error fetching expenses:', error)
@@ -119,7 +130,17 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     
-    set((state) => ({ expenses: [expense, ...state.expenses] }))
+    const dbReceiptUrl = expense.previewUrl
+    let uiPreviewUrl = expense.previewUrl
+
+    if (dbReceiptUrl && !dbReceiptUrl.startsWith('http') && !dbReceiptUrl.startsWith('data:')) {
+      const { data } = await supabase.storage.from('receipts').createSignedUrl(dbReceiptUrl, 60 * 60 * 24)
+      if (data?.signedUrl) {
+        uiPreviewUrl = data.signedUrl
+      }
+    }
+    
+    set((state) => ({ expenses: [{ ...expense, previewUrl: uiPreviewUrl }, ...state.expenses] }))
     
     const { data: cats } = await supabase.from('categories').select('id, name')
     let category_id = null
@@ -128,10 +149,12 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
       if (match) {
         category_id = match.id
       } else {
-        // AI returned a new category! Let's create it dynamically in the DB
+        const vibrantColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e']
+        const randomColor = vibrantColors[Math.floor(Math.random() * vibrantColors.length)]
+        
         const { data: newCat, error: catErr } = await supabase.from('categories').insert([{
           name: expense.category,
-          color_hex: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'), // Random color
+          color_hex: randomColor,
           icon_name: 'tag',
           user_id: user.id
         }]).select('id').single()
@@ -139,7 +162,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
         if (newCat && !catErr) {
           category_id = newCat.id
         } else {
-          category_id = cats[0]?.id // Fallback
+          category_id = cats[0]?.id
         }
       }
     }
@@ -149,10 +172,14 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
       merchant_name: expense.merchant,
       amount: expense.amount,
       transaction_date: expense.date,
-      category_id
+      category_id,
+      receipt_url: dbReceiptUrl
     }])
     
-    if (error) console.error('Error adding expense:', error)
+    if (error) {
+      console.error('Error adding expense:', error)
+      throw error
+    }
   },
 
   removeExpense: async (id) => {
@@ -180,10 +207,14 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     if (updated.amount !== undefined) updatePayload.amount = updated.amount
     if (updated.date) updatePayload.transaction_date = updated.date
     if (category_id) updatePayload.category_id = category_id
+    if (updated.previewUrl) updatePayload.receipt_url = updated.previewUrl
 
     if (Object.keys(updatePayload).length > 0) {
       const { error } = await supabase.from('expenses').update(updatePayload).eq('id', id)
-      if (error) console.error('Error updating expense:', error)
+      if (error) {
+        console.error('Error updating expense:', error)
+        throw error
+      }
     }
   }
 }))

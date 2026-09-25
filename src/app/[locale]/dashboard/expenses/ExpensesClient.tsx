@@ -2,12 +2,33 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Search, Filter, Plus, Edit2, Trash2, Receipt, Tag, Camera, PenLine, CalendarDays
+  Search, Filter, Plus, Edit2, Trash2, Receipt, Tag, Camera, PenLine, CalendarDays, Loader2
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useRouter } from '@/i18n/routing'
+import { useSearchParams } from 'next/navigation'
 import { useExpenseStore } from '@/store/expenses'
 import * as LucideIcons from 'lucide-react'
+
+// Helper to ensure colors are readable
+const adjustColor = (hex: string) => {
+  if (!hex || hex.length < 7) return '#94a3b8';
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  
+  // Calculate relative luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // If color is too dark (luminance < 0.3), brighten it significantly
+  if (luminance < 0.3) {
+    r = Math.min(255, r + 100);
+    g = Math.min(255, g + 100);
+    b = Math.min(255, b + 100);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+  return hex;
+}
 
 // Helper to get consistent dynamic category styles from global store categories
 const getCategoryStyle = (catName: string, globalCategories: any[]) => {
@@ -15,7 +36,7 @@ const getCategoryStyle = (catName: string, globalCategories: any[]) => {
   if (cat) {
     return {
       name: cat.name,
-      colorHex: cat.color_hex,
+      colorHex: adjustColor(cat.color_hex),
       iconName: cat.icon_name
     }
   }
@@ -24,12 +45,29 @@ const getCategoryStyle = (catName: string, globalCategories: any[]) => {
 
 export function ExpensesClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
+  
   const { expenses: globalExpenses, categories: globalCategories, isLoading, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
   
   useEffect(() => {
     fetchExpenses()
     fetchCategories()
   }, [fetchExpenses, fetchCategories])
+
+  // Automatically open edit modal if ?edit=id is present and expenses are loaded
+  useEffect(() => {
+    if (editId && !isLoading && globalExpenses.length > 0) {
+      const expenseToEdit = globalExpenses.find(e => e.id === editId)
+      if (expenseToEdit) {
+        const mappedExpense = {
+          ...expenseToEdit,
+          categoryName: getCategoryStyle(expenseToEdit.category, globalCategories).name
+        }
+        handleEditClick(mappedExpense)
+      }
+    }
+  }, [editId, isLoading, globalExpenses, globalCategories])
   
   // Map global store format to local format for display
   const expenses = globalExpenses.map(ge => {
@@ -103,32 +141,42 @@ export function ExpensesClient() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const handleDelete = (id: string) => setDeleteId(id)
 
-  const handleSave = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false)
+  
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.merchant || !formData.amount) return
 
     const amountNum = parseFloat(formData.amount)
+    setIsSaving(true)
 
-    if (editingExpense) {
-      updateExpense(editingExpense.id, {
-        merchant: formData.merchant,
-        amount: amountNum,
-        date: formData.date,
-        category: formData.category
-      })
-    } else {
-      addExpense({
-        id: Math.random().toString(36).substring(7),
-        merchant: formData.merchant,
-        amount: amountNum,
-        date: formData.date,
-        category: formData.category,
-        tax: 0,
-        status: 'Saved',
-        source: 'Manual'
-      })
+    try {
+      if (editingExpense) {
+        await updateExpense(editingExpense.id, {
+          merchant: formData.merchant,
+          amount: amountNum,
+          date: formData.date,
+          category: formData.category
+        })
+      } else {
+        await addExpense({
+          id: Math.random().toString(36).substring(7),
+          merchant: formData.merchant,
+          amount: amountNum,
+          date: formData.date,
+          category: formData.category,
+          tax: 0,
+          status: 'Saved',
+          source: 'Manual'
+        })
+      }
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error('Failed to save expense', error)
+      console.error('Failed to save expense. Please try again.')
+    } finally {
+      setIsSaving(false)
     }
-    setIsModalOpen(false)
   }
 
   // Filter logic
@@ -429,6 +477,18 @@ export function ExpensesClient() {
             </div>
             
             <form onSubmit={handleSave} className="p-6 space-y-4">
+              {editingExpense?.previewUrl && (
+                <div className="flex justify-center mb-4">
+                  <div 
+                    onClick={() => window.open(editingExpense.previewUrl, '_blank')}
+                    className="relative w-full h-40 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+                    title="Click to enlarge"
+                  >
+                    <img src={editingExpense.previewUrl} alt="Receipt" className="max-w-full max-h-full object-contain" />
+                  </div>
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Merchant Name</label>
                 <input 
@@ -483,9 +543,11 @@ export function ExpensesClient() {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
                 >
-                  {editingExpense ? 'Save Changes' : 'Add Expense'}
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {isSaving ? 'Saving...' : editingExpense ? 'Save Changes' : 'Add Expense'}
                 </button>
               </div>
             </form>

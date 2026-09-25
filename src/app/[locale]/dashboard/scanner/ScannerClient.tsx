@@ -5,7 +5,7 @@ import {
   Upload, Camera, Image as ImageIcon, FileText, Loader2,
   Crop, RotateCw, ShieldCheck, Check, AlertTriangle, X,
   Tag as TagIcon, Eye, Trash2, Edit2, Zap, FileSearch,
-  ArrowRight, ShieldAlert, CreditCard, Plus
+  ArrowRight, ShieldAlert, CreditCard, Plus, Paintbrush
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useRouter } from '@/i18n/routing'
@@ -13,6 +13,7 @@ import { scanReceipt } from '@/app/actions/scanReceipt'
 import { useExpenseStore } from '@/store/expenses'
 import ReactCrop, { type Crop as ReactCropType, type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
+import { createClient } from '@/utils/supabase/client'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -43,14 +44,152 @@ type ScannedReceipt = AIResult & {
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
+// ─── Redact Modal ─────────────────────────────────────────────────────────────
+function RedactModal({ 
+  imageUrl, 
+  onClose, 
+  onSave 
+}: { 
+  imageUrl: string, 
+  onClose: () => void, 
+  onSave: (blob: Blob, dataUrl: string) => void 
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null)
+  const [brushSize, setBrushSize] = useState(25)
+  const [imgWidth, setImgWidth] = useState(1000)
+  
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const context = canvas.getContext('2d')
+    if (!context) return
+    
+    // Only load image once
+    if (!ctx) {
+      const img = new window.Image()
+      img.crossOrigin = "anonymous"
+      img.src = imageUrl
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        setImgWidth(img.width)
+        context.drawImage(img, 0, 0)
+        
+        context.lineJoin = 'round'
+        context.lineCap = 'round'
+        context.strokeStyle = '#1e293b' // dark slate color for redaction
+        
+        setCtx(context)
+      }
+    }
+  }, [imageUrl, ctx])
+
+  // Update brush size when slider changes (scale it relative to image width so it feels consistent)
+  useEffect(() => {
+    if (ctx) {
+      ctx.lineWidth = brushSize * (imgWidth / 500)
+    }
+  }, [brushSize, ctx, imgWidth])
+
+  const startDrawing = (e: React.PointerEvent) => {
+    if (!ctx || !canvasRef.current) return
+    setIsDrawing(true)
+    const rect = canvasRef.current.getBoundingClientRect()
+    const scaleX = canvasRef.current.width / rect.width
+    const scaleY = canvasRef.current.height / rect.height
+    
+    ctx.beginPath()
+    ctx.moveTo((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY)
+  }
+
+  const draw = (e: React.PointerEvent) => {
+    if (!isDrawing || !ctx || !canvasRef.current) return
+    e.preventDefault() 
+    const rect = canvasRef.current.getBoundingClientRect()
+    const scaleX = canvasRef.current.width / rect.width
+    const scaleY = canvasRef.current.height / rect.height
+    
+    ctx.lineTo((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY)
+    ctx.stroke()
+  }
+
+  const stopDrawing = () => {
+    if (!ctx) return
+    ctx.closePath()
+    setIsDrawing(false)
+  }
+
+  const handleSave = () => {
+    if (!canvasRef.current) return
+    canvasRef.current.toBlob((blob) => {
+      if (blob) {
+        onSave(blob, canvasRef.current!.toDataURL('image/jpeg', 0.9))
+      }
+    }, 'image/jpeg', 0.9)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-slate-50 dark:bg-slate-900/50">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Paintbrush className="w-5 h-5 text-rose-500" />
+              Manual Redaction
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">Draw over sensitive information to hide it before AI processing.</p>
+          </div>
+          
+          <div className="flex items-center gap-4 self-stretch sm:self-auto">
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-medium text-slate-500">Brush Size:</span>
+              <input 
+                type="range" 
+                min="5" 
+                max="80" 
+                value={brushSize} 
+                onChange={e => setBrushSize(parseInt(e.target.value))}
+                className="w-24 accent-rose-500"
+              />
+            </div>
+            
+            <div className="flex gap-2 ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">Cancel</button>
+              <button onClick={handleSave} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-bold shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2 shrink-0">
+                <Check className="w-4 h-4" />
+                Apply Redaction
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-100/50 dark:bg-black/20 min-h-[500px]">
+          <canvas
+            ref={canvasRef}
+            onPointerDown={startDrawing}
+            onPointerMove={draw}
+            onPointerUp={stopDrawing}
+            onPointerOut={stopDrawing}
+            className="max-w-full h-auto cursor-crosshair touch-none shadow-md rounded border border-slate-200 dark:border-slate-700"
+            style={{ maxHeight: 'calc(100vh - 150px)' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ScannerClient() {
   const router = useRouter()
   
   // App States
   const [step, setStep] = useState<'upload' | 'preprocess' | 'analyzing' | 'review'>('upload')
   const [queue, setQueue] = useState<QueuedFile[]>([])
+  const [isSaving, setIsSaving] = useState(false)
 
-  const { expenses: globalExpenses, categories: globalCategories, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
+  const { expenses: globalExpenses, categories: globalCategories, isLoading, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
   
   // Get dynamic categories list
   const uniqueCategories = globalCategories.length > 0 
@@ -97,7 +236,8 @@ export function ScannerClient() {
   })
 
   // Current Processing State
-  const [isRedacted, setIsRedacted] = useState(false)
+  const [isRedacted, setIsRedacted] = useState(false) // keeping this to show the "Redacted" badge if we want
+  const [isRedactModalOpen, setIsRedactModalOpen] = useState(false)
   const [rotation, setRotation] = useState(0)
   const [aiData, setAiData] = useState<AIResult | null>(null)
   
@@ -110,6 +250,22 @@ export function ScannerClient() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
+
+  const handleRedactSave = (blob: Blob, dataUrl: string) => {
+    // Update the current file with the redacted version
+    setQueue(prev => prev.map((item, idx) => {
+      if (idx === 0) {
+        return {
+          ...item,
+          file: new File([blob], item.file.name, { type: 'image/jpeg' }),
+          previewUrl: dataUrl
+        }
+      }
+      return item
+    }))
+    setIsRedacted(true) // show a badge or status if needed
+    setIsRedactModalOpen(false)
+  }
 
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return
@@ -150,6 +306,7 @@ export function ScannerClient() {
     try {
       const formData = new FormData()
       formData.append('file', queue[0].file)
+      formData.append('categories', JSON.stringify(uniqueCategories))
       
       const response = await scanReceipt(formData)
       
@@ -168,7 +325,8 @@ export function ScannerClient() {
   }
 
   const handleSave = async () => {
-    if (!aiData || !queue.length) return
+    if (!aiData || !queue.length || isSaving) return
+    setIsSaving(true)
     
     // Check against global expenses for duplicates
     const isDuplicateRecord = globalExpenses.some(
@@ -187,37 +345,53 @@ export function ScannerClient() {
     
     const expenseId = Math.random().toString(36).substring(7)
     
-    // Convert file to base64 so it survives page reloads in localStorage
-    const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-    })
-    
     let finalPreviewUrl = queue[0].previewUrl
     try {
       if (queue[0].file) {
-        finalPreviewUrl = await toBase64(queue[0].file)
+        const file = queue[0].file
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${expenseId}-${Date.now()}.${fileExt}`
+        
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const filePath = `${user.id}/${fileName}`
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('receipts')
+            .upload(filePath, file, { upsert: false })
+            
+          if (uploadError) {
+            console.error('Supabase upload failed:', uploadError)
+          } else if (uploadData) {
+            // We store the path. The store will generate a signed URL when fetching.
+            finalPreviewUrl = filePath
+          }
+        }
       }
     } catch(e) {
-      console.error('Failed to convert to base64', e)
+      console.error('Failed to upload to Supabase', e)
     }
     
     // Globally Save Expense
-    addExpense({
-      id: expenseId,
-      merchant: aiData.merchant,
-      amount: aiData.amount,
-      tax: aiData.tax,
-      date: aiData.date,
-      category: aiData.category,
-      status: 'Saved',
-      source: 'Scanner',
-      currency: aiData.original_currency || 'SAR',
-      previewUrl: finalPreviewUrl,
-      fileType: queue[0].file.type
-    })
+    try {
+      await addExpense({
+        id: expenseId,
+        merchant: aiData.merchant,
+        amount: aiData.amount,
+        tax: aiData.tax,
+        date: aiData.date,
+        category: aiData.category,
+        status: 'Saved',
+        source: 'Scanner',
+        currency: aiData.original_currency || 'SAR',
+        previewUrl: finalPreviewUrl,
+        fileType: queue[0].file.type
+      })
+    } catch (err) {
+      console.error('Failed to add expense:', err)
+      setIsSaving(false)
+      return
+    }
     
     // Move to next in queue
     const newQueue = queue.slice(1)
@@ -234,6 +408,7 @@ export function ScannerClient() {
       setRotation(0)
       setAiData(null)
     }
+    setIsSaving(false)
   }
 
   const handleDiscard = () => {
@@ -452,29 +627,30 @@ export function ScannerClient() {
                   Rotate 90°
                 </button>
                 
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 mt-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                      Auto-Redact PII
-                    </span>
-                    <button 
-                      onClick={() => setIsRedacted(!isRedacted)}
-                      className={clsx(
-                        "w-10 h-5 rounded-full relative transition-colors",
-                        isRedacted ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
-                      )}
-                    >
-                      <div className={clsx(
-                        "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
-                        isRedacted ? "left-5" : "left-1"
-                      )} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Automatically detect and blur credit card numbers and sensitive data before saving.
-                  </p>
-                </div>
+                {/* Manual Redact Button */}
+                {currentFile.file.type !== 'application/pdf' && (
+                  <button 
+                    onClick={() => setIsRedactModalOpen(true)}
+                    className="w-full flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mt-6 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                        <Paintbrush className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="text-left">
+                        <span className="block text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          Manual Redaction
+                        </span>
+                        <span className="block text-xs text-slate-500 mt-0.5">Hide sensitive info</span>
+                      </div>
+                    </div>
+                    {isRedacted ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-md">Applied</span>
+                    ) : (
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex gap-3 mt-6">
@@ -651,10 +827,11 @@ export function ScannerClient() {
                 </button>
                 <button 
                   onClick={handleSave}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
                 >
-                  <Check className="w-5 h-5" />
-                  Save Expense {queue.length > 1 ? `& Next (${queue.length - 1})` : ''}
+                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                  {isSaving ? 'Saving...' : `Save Expense ${queue.length > 1 ? `& Next (${queue.length - 1})` : ''}`}
                 </button>
               </div>
             </div>
@@ -688,7 +865,22 @@ export function ScannerClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                {recentScans.length > 0 ? recentScans.slice(0, 5).map((item, i) => (
+                {isLoading ? (
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse bg-white dark:bg-slate-900">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800" />
+                          <div className="h-4 w-24 bg-slate-100 dark:bg-slate-800 rounded" />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-100 dark:bg-slate-800 rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-100 dark:bg-slate-800 rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-5 w-16 bg-slate-100 dark:bg-slate-800 rounded-md" /></td>
+                      <td className="px-6 py-4"></td>
+                    </tr>
+                  ))
+                ) : recentScans.length > 0 ? recentScans.slice(0, 5).map((item, i) => (
                   <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -713,22 +905,12 @@ export function ScannerClient() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {item.previewUrl && (
-                          <button 
-                            onClick={() => window.open(item.previewUrl, '_blank')}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        )}
                         <button 
-                          onClick={async () => {
-                            const newMerchant = await promptAsync('Edit Merchant Name', 'Enter the new merchant name:', item.merchant);
-                            if (newMerchant) updateExpense(item.id, { merchant: newMerchant });
-                          }}
+                          onClick={() => router.push(`/dashboard/expenses?edit=${item.id}`)}
+                          title="View & Edit Details"
                           className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={async () => {
@@ -854,7 +1036,15 @@ export function ScannerClient() {
           </div>
         </div>
       )}
-
+      
+      {/* Redact Modal */}
+      {isRedactModalOpen && currentFile && (
+        <RedactModal
+          imageUrl={currentFile.previewUrl}
+          onClose={() => setIsRedactModalOpen(false)}
+          onSave={handleRedactSave}
+        />
+      )}
     </div>
   )
 }
