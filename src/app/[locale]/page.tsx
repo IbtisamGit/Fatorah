@@ -3,7 +3,7 @@
 import {useTranslations, useLocale} from 'next-intl';
 import {Button} from '@/components/ui/button';
 import {Link, usePathname, useRouter} from '@/i18n/routing';
-import { ArrowRight, Receipt, ScanLine, PieChart, Sparkles, Globe } from 'lucide-react';
+import { ArrowRight, Receipt, ScanLine, BrainCircuit, ShieldCheck, Sparkles, Globe } from 'lucide-react';
 import { MagicParticles } from '@/components/MagicParticles';
 
 export default function HomePage() {
@@ -119,7 +119,7 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <div className="relative z-10">
                 <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-green-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-8 shadow-inner group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 border border-green-100">
-                  <Receipt className="w-10 h-10" />
+                  <BrainCircuit className="w-10 h-10" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-emerald-700 transition-colors">{t('feature_2_title')}</h3>
                 <p className="text-gray-600 text-lg leading-relaxed">{t('feature_2_desc')}</p>
@@ -131,7 +131,7 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <div className="relative z-10">
                 <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-green-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-8 shadow-inner group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500 border border-green-100">
-                  <PieChart className="w-10 h-10" />
+                  <ShieldCheck className="w-10 h-10" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-emerald-700 transition-colors">{t('feature_3_title')}</h3>
                 <p className="text-gray-600 text-lg leading-relaxed">{t('feature_3_desc')}</p>
