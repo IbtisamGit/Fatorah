@@ -28,7 +28,7 @@ export function OverviewCharts({ data }: { data: ChartData }) {
             <BarChart data={data.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `SAR ${value}`} />
               <Tooltip 
                 cursor={{ fill: 'rgba(241, 245, 249, 0.5)' }}
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
@@ -64,7 +64,7 @@ export function OverviewCharts({ data }: { data: ChartData }) {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Amount']}
+                    formatter={(value: number) => [`SAR ${value.toFixed(2)}`, 'Amount']}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -76,7 +76,7 @@ export function OverviewCharts({ data }: { data: ChartData }) {
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="text-sm text-slate-600 dark:text-slate-300 truncate max-w-[120px]" title={item.name}>{item.name}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">${item.value.toFixed(0)}</span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">SAR {item.value.toFixed(2)}</span>
                 </div>
               ))}
             </div>

@@ -30,6 +30,10 @@ export function CategoriesClient() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: '', color_hex: COLORS[0], icon_name: ICONS[0] })
+  
+  // Custom modals state
+  const [alertMessage, setAlertMessage] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   const handleOpenNew = () => {
     setEditingCategory(null)
@@ -48,7 +52,7 @@ export function CategoriesClient() {
     
     // Check for exact duplicate name when creating
     if (!editingCategory && categories.some(c => c.name.toLowerCase() === formData.name.toLowerCase())) {
-      alert('A category with this name already exists.')
+      setAlertMessage('A category with this name already exists.')
       return
     }
 
@@ -61,8 +65,13 @@ export function CategoriesClient() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this category? Expenses using it might appear as "Other".')) {
-      await removeCategory(id)
+    setDeleteConfirmId(id)
+  }
+
+  const confirmDelete = async () => {
+    if (deleteConfirmId) {
+      await removeCategory(deleteConfirmId)
+      setDeleteConfirmId(null)
     }
   }
 
@@ -202,6 +211,52 @@ export function CategoriesClient() {
                 className="px-5 py-2.5 rounded-xl font-semibold bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
               >
                 Save Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Alert Modal ── */}
+      {alertMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col items-center text-center animate-in zoom-in-95">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-500 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl font-bold">!</span>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Attention</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{alertMessage}</p>
+            <button 
+              onClick={() => setAlertMessage(null)}
+              className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Delete Confirm Modal ── */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col items-center text-center animate-in zoom-in-95">
+            <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-500 rounded-full flex items-center justify-center mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Confirm Deletion</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Are you sure you want to delete this category? Expenses using it might appear as "Other".</p>
+            <div className="flex gap-3 w-full">
+              <button 
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl transition-colors"
+              >
+                Delete
               </button>
             </div>
           </div>

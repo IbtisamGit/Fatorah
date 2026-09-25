@@ -56,7 +56,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     
     // Also fetch categories to map UUIDs
     const [{ data: exps, error }, { data: cats }] = await Promise.all([
-      supabase.from('expenses').select('*').order('transaction_date', { ascending: false }),
+      supabase.from('expenses').select('*').eq('user_id', user.id).order('transaction_date', { ascending: false }),
       supabase.from('categories').select('*')
     ])
       
@@ -124,7 +124,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const { data: cats } = await supabase.from('categories').select('id, name')
     let category_id = null
     if (cats) {
-      const match = cats.find(c => c.name.toLowerCase().includes(expense.category.toLowerCase()))
+      const match = cats.find(c => c.name.toLowerCase() === expense.category.toLowerCase())
       if (match) {
         category_id = match.id
       } else {
@@ -171,13 +171,13 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const { data: cats } = await supabase.from('categories').select('id, name')
     let category_id = undefined
     if (updated.category && cats) {
-      const match = cats.find(c => c.name.toLowerCase().includes(updated.category!.toLowerCase()))
+      const match = cats.find(c => c.name.toLowerCase() === updated.category!.toLowerCase())
       if (match) category_id = match.id
     }
     
     const updatePayload: any = {}
     if (updated.merchant) updatePayload.merchant_name = updated.merchant
-    if (updated.amount) updatePayload.amount = updated.amount
+    if (updated.amount !== undefined) updatePayload.amount = updated.amount
     if (updated.date) updatePayload.transaction_date = updated.date
     if (category_id) updatePayload.category_id = category_id
 
