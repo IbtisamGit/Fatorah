@@ -14,6 +14,7 @@ import { useExpenseStore } from '@/store/expenses'
 import ReactCrop, { type Crop as ReactCropType, type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import { createClient } from '@/utils/supabase/client'
+import { useTranslations } from 'next-intl'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ function RedactModal({
   onClose: () => void, 
   onSave: (blob: Blob, dataUrl: string) => void 
 }) {
+  const t = useTranslations('Scanner')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null)
@@ -137,14 +139,14 @@ function RedactModal({
           <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Paintbrush className="w-5 h-5 text-rose-500" />
-              Manual Redaction
+              {t('manual_redaction')}
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">Draw over sensitive information to hide it before AI processing.</p>
+            <p className="text-xs text-slate-500 mt-0.5">{t('manual_redaction_desc')}</p>
           </div>
           
           <div className="flex items-center gap-4 self-stretch sm:self-auto">
             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="text-xs font-medium text-slate-500">Brush Size:</span>
+              <span className="text-xs font-medium text-slate-500">{t('brush_size')}</span>
               <input 
                 type="range" 
                 min="5" 
@@ -155,11 +157,11 @@ function RedactModal({
               />
             </div>
             
-            <div className="flex gap-2 ml-auto">
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">Cancel</button>
+            <div className="flex gap-2 ml-auto text-end">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">{t('cancel')}</button>
               <button onClick={handleSave} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-bold shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2 shrink-0">
                 <Check className="w-4 h-4" />
-                Apply Redaction
+                {t('apply_redaction')}
               </button>
             </div>
           </div>
@@ -182,6 +184,8 @@ function RedactModal({
 }
 
 export function ScannerClient() {
+  const t = useTranslations('Scanner')
+  const tNames = useTranslations('CategoryNames')
   const router = useRouter()
   
   // App States
@@ -191,6 +195,18 @@ export function ScannerClient() {
 
   const { expenses: globalExpenses, categories: globalCategories, isLoading, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
   
+  const getCategoryName = (name: string) => {
+    try {
+      const defaults = ["Groceries", "Personal Care", "Travel", "Entertainment & Subscriptions", "Other", "Transportation", "Electronics", "Housing & Rent", "Shopping", "Education", "Healthcare", "Restaurants & Cafes", "Utilities & Bills"]
+      if (defaults.includes(name)) {
+        return tNames(name as any)
+      }
+      return name
+    } catch {
+      return name
+    }
+  }
+
   // Get dynamic categories list
   const uniqueCategories = globalCategories.length > 0 
     ? Array.from(new Set(globalCategories.map(c => c.name)))
@@ -314,12 +330,12 @@ export function ScannerClient() {
          setAiData(response.data)
          setStep('review')
       } else {
-         alertAsync('Analysis Failed', response.error || 'Unknown error occurred')
+         alertAsync(t('analysis_failed'), response.error || t('unknown_error'))
          setStep('preprocess')
       }
     } catch (e) {
       console.error(e)
-      alertAsync('Error', 'Failed to connect to AI service.')
+      alertAsync(t('error'), t('connection_error'))
       setStep('preprocess')
     }
   }
@@ -337,10 +353,13 @@ export function ScannerClient() {
     
     if (isDuplicateRecord) {
       const proceed = await confirmAsync(
-        '⚠️ Duplicate Detected',
-        'A very similar expense already exists (same merchant, amount, and date). Are you sure you want to save it anyway?'
+        `⚠️ ${t('duplicate_detected')}`,
+        t('duplicate_desc_confirm')
       )
-      if (!proceed) return
+      if (!proceed) {
+        setIsSaving(false)
+        return
+      }
     }
     
     const expenseId = Math.random().toString(36).substring(7)
@@ -428,7 +447,7 @@ export function ScannerClient() {
 
   const handleCropClick = () => {
     if (queue[0]?.file.type === 'application/pdf') {
-       alertAsync('Not Supported', 'Cropping is currently only supported for image files (JPG/PNG).')
+       alertAsync(t('not_supported'), t('crop_not_supported'))
        return
     }
     setIsCropModalOpen(true)
@@ -481,7 +500,7 @@ export function ScannerClient() {
       setCompletedCrop(null)
     } catch (e) {
       console.error('Crop failed', e)
-      alertAsync('Crop Failed', 'Could not process the image. Please try again.')
+      alertAsync(t('crop_failed'), t('crop_failed_desc'))
     }
   }
 
@@ -519,16 +538,16 @@ export function ScannerClient() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            Intelligent Scanner <Zap className="w-5 h-5 text-emerald-500 fill-emerald-500" />
+            {t('title')} <Zap className="w-5 h-5 text-emerald-500 fill-emerald-500" />
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Powered by Gemini 2.5 Flash Vision</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('subtitle')}</p>
         </div>
         
         {/* Queue Indicator */}
         {queue.length > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-semibold border border-blue-200 dark:border-blue-800">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Processing {queue.length} file{queue.length > 1 ? 's' : ''} in queue
+            {t('processing_queue', { count: queue.length })}
           </div>
         )}
       </div>
@@ -546,9 +565,9 @@ export function ScannerClient() {
             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 border border-slate-100 dark:border-slate-700 shadow-inner">
               <FileSearch className="w-10 h-10 text-emerald-500" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Upload or Scan Receipts</h3>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">{t('upload_title')}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">
-              Drag and drop your receipts, invoices, or bills here. We support batch processing for multiple files (JPG, PNG, PDF).
+              {t('upload_desc')}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
@@ -557,11 +576,11 @@ export function ScannerClient() {
                 className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
               >
                 <ImageIcon className="w-5 h-5" />
-                Select Files
+                {t('select_files')}
               </button>
               <button className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 px-6 py-3.5 rounded-xl text-sm font-semibold transition-all">
                 <Camera className="w-5 h-5" />
-                Use Camera
+                {t('use_camera')}
               </button>
             </div>
             
@@ -589,8 +608,8 @@ export function ScannerClient() {
                   <object data={currentFile.previewUrl} type="application/pdf" className="w-full h-full min-h-[400px]">
                     <div className="p-8 text-center flex flex-col items-center">
                       <FileText className="w-12 h-12 text-slate-400 mb-3" />
-                      <p className="text-slate-500">PDF Document selected.</p>
-                      <a href={currentFile.previewUrl} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline mt-2 text-sm">Click here to view</a>
+                      <p className="text-slate-500">{t('pdf_selected')}</p>
+                      <a href={currentFile.previewUrl} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline mt-2 text-sm">{t('click_to_view')}</a>
                     </div>
                   </object>
                 ) : (
@@ -601,7 +620,7 @@ export function ScannerClient() {
                 {isRedacted && (
                   <div className="absolute top-[20%] left-[10%] w-[60%] h-[8%] backdrop-blur-md bg-black/40 rounded border border-white/20 flex items-center justify-center animate-in zoom-in z-50 pointer-events-none">
                     <ShieldAlert className="w-4 h-4 text-white/80 mr-1" />
-                    <span className="text-[10px] text-white/90 font-bold uppercase tracking-wider">Redacted</span>
+                    <span className="text-[10px] text-white/90 font-bold uppercase tracking-wider">{t('redacted')}</span>
                   </div>
                 )}
               </div>
@@ -609,22 +628,22 @@ export function ScannerClient() {
 
             {/* Preprocess Controls */}
             <div className="w-full md:w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6">Pre-processing</h3>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6">{t('preprocessing')}</h3>
               
               <div className="space-y-4 flex-1">
                 <button 
                   onClick={handleCropClick}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-start"
                 >
                   <Crop className="w-4 h-4 text-slate-400" />
-                  Crop Image
+                  {t('crop_image')}
                 </button>
                 <button 
                   onClick={() => setRotation(prev => prev + 90)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors text-start"
                 >
                   <RotateCw className="w-4 h-4 text-slate-400" />
-                  Rotate 90°
+                  {t('rotate')}
                 </button>
                 
                 {/* Manual Redact Button */}
@@ -637,17 +656,17 @@ export function ScannerClient() {
                       <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                         <Paintbrush className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                      <div className="text-left">
+                      <div className="text-start">
                         <span className="block text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                          Manual Redaction
+                          {t('manual_redaction')}
                         </span>
-                        <span className="block text-xs text-slate-500 mt-0.5">Hide sensitive info</span>
+                        <span className="block text-xs text-slate-500 mt-0.5">{t('hide_sensitive')}</span>
                       </div>
                     </div>
                     {isRedacted ? (
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-md">Applied</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-md">{t('applied')}</span>
                     ) : (
-                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform rtl:group-hover:-translate-x-1 rtl:rotate-180" />
                     )}
                   </button>
                 )}
@@ -655,13 +674,13 @@ export function ScannerClient() {
 
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex gap-3 mt-6">
                 <button onClick={handleDiscard} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  Discard
+                  {t('discard')}
                 </button>
                 <button 
                   onClick={startAnalysis}
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-colors"
                 >
-                  Analyze <ArrowRight className="w-4 h-4" />
+                  {t('analyze')} <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                 </button>
               </div>
             </div>
@@ -687,9 +706,9 @@ export function ScannerClient() {
                   <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray="72 216" strokeLinecap="round" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Analyzing Document</h3>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">{t('analyzing')}</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse text-center max-w-xs">
-                Gemini 2.5 Flash is extracting and securing data...
+                {t('analyzing_desc')}
               </p>
             </div>
           </div>
@@ -714,7 +733,7 @@ export function ScannerClient() {
                  {isRedacted && (
                    <div className="absolute top-[20%] left-[10%] w-[60%] h-[8%] backdrop-blur-md bg-black/40 rounded border border-white/20 flex items-center justify-center z-50">
                      <ShieldAlert className="w-4 h-4 text-white/80 mr-1" />
-                     <span className="text-[10px] text-white/90 font-bold uppercase tracking-wider">Redacted</span>
+                     <span className="text-[10px] text-white/90 font-bold uppercase tracking-wider">{t('redacted')}</span>
                    </div>
                  )}
                </div>
@@ -728,9 +747,9 @@ export function ScannerClient() {
                 <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 flex gap-3 animate-in slide-in-from-top-2">
                   <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-bold text-rose-900 dark:text-rose-300">Duplicate Detected</h4>
+                    <h4 className="text-sm font-bold text-rose-900 dark:text-rose-300">{t('duplicate_detected')}</h4>
                     <p className="text-xs text-rose-700 dark:text-rose-400/80 mt-1 leading-relaxed">
-                      We found a similar expense logged recently (Same Merchant, Amount, and Date). Please review carefully to avoid double-counting.
+                      {t('duplicate_desc_review')}
                     </p>
                   </div>
                 </div>
@@ -738,37 +757,37 @@ export function ScannerClient() {
 
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Review Extraction</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Make any corrections before saving.</p>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">{t('review_extraction')}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('make_corrections')}</p>
                 </div>
               </div>
 
               <div className="space-y-5 flex-1">
-                {renderConfidenceField('Merchant Name', aiData.merchant, 'merchant')}
+                {renderConfidenceField(t('merchant_name'), aiData.merchant, 'merchant')}
                 
                 <div className="grid grid-cols-2 gap-4">
-                  {renderConfidenceField('Date', aiData.date, 'date', 'date')}
+                  {renderConfidenceField(t('date'), aiData.date, 'date', 'date')}
                   
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('category')}</label>
                     <select
                       value={aiData.category}
                       onChange={(e) => setAiData({...aiData, category: e.target.value})}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100"
                     >
                       {!uniqueCategories.includes(aiData.category) && (
-                         <option key={aiData.category} value={aiData.category}>{aiData.category} (New AI Suggestion)</option>
+                         <option key={aiData.category} value={aiData.category}>{getCategoryName(aiData.category)} {t('new_ai_suggestion')}</option>
                       )}
                       {uniqueCategories.map(cat => (
-                         <option key={cat} value={cat}>{cat}</option>
+                         <option key={cat} value={cat}>{getCategoryName(cat)}</option>
                       ))}
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-5">
-                  {renderConfidenceField('Total Amount', aiData.amount, 'amount', 'number')}
-                  {renderConfidenceField('Tax / VAT', aiData.tax, 'tax', 'number')}
+                  {renderConfidenceField(t('total_amount'), aiData.amount, 'amount', 'number')}
+                  {renderConfidenceField(t('tax_vat'), aiData.tax, 'tax', 'number')}
                 </div>
 
                 {/* Multi-currency block */}
@@ -778,8 +797,8 @@ export function ScannerClient() {
                       <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-300">Foreign Currency Detected</p>
-                      <p className="text-xs text-blue-700/80 dark:text-blue-400/80">Original: {aiData.amount} {aiData.original_currency} ≈ {aiData.converted_amount.toFixed(2)} SAR</p>
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-300">{t('foreign_currency')}</p>
+                      <p className="text-xs text-blue-700/80 dark:text-blue-400/80">{t('original')}: {aiData.amount} {aiData.original_currency} ≈ {aiData.converted_amount.toFixed(2)} SAR</p>
                     </div>
                   </div>
                 )}
@@ -787,7 +806,7 @@ export function ScannerClient() {
                 {/* Smart Tags */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                    <TagIcon className="w-4 h-4 text-emerald-500" /> Smart Tags
+                    <TagIcon className="w-4 h-4 text-emerald-500" /> {t('smart_tags')}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {aiData.tags.map(tag => (
@@ -795,7 +814,7 @@ export function ScannerClient() {
                         #{tag}
                         <button 
                           onClick={() => setAiData({...aiData, tags: aiData.tags.filter(t => t !== tag)})}
-                          className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity ms-1"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -803,14 +822,14 @@ export function ScannerClient() {
                     ))}
                     <button 
                       onClick={async () => {
-                        const newTag = await promptAsync('New Tag', 'Enter a new smart tag (e.g. business, travel):')
+                        const newTag = await promptAsync(t('new_tag'), t('new_tag_prompt'))
                         if (newTag && !aiData.tags.includes(newTag.trim())) {
                           setAiData({...aiData, tags: [...aiData.tags, newTag.replace('#', '').trim()]})
                         }
                       }}
                       className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                     >
-                      <Plus className="w-3 h-3" /> Add
+                      <Plus className="w-3 h-3" /> {t('add')}
                     </button>
                   </div>
                 </div>
@@ -823,7 +842,7 @@ export function ScannerClient() {
                   onClick={handleDiscard}
                   className="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  Discard
+                  {t('discard')}
                 </button>
                 <button 
                   onClick={handleSave}
@@ -831,7 +850,7 @@ export function ScannerClient() {
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
                 >
                   {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                  {isSaving ? 'Saving...' : `Save Expense ${queue.length > 1 ? `& Next (${queue.length - 1})` : ''}`}
+                  {isSaving ? t('saving') : (queue.length > 1 ? t('save_and_next', { count: queue.length - 1 }) : t('save_expense'))}
                 </button>
               </div>
             </div>
@@ -842,26 +861,26 @@ export function ScannerClient() {
       {/* ─── Recent Scans History ─── */}
       <div className="pt-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Recent Scans</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">{t('recent_scans')}</h3>
           {globalExpenses.length > 5 && (
             <button 
               onClick={() => router.push('/dashboard/expenses')}
               className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
             >
-              View All
+              {t('view_all')}
             </button>
           )}
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-start border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Merchant</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_merchant')}</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_date')}</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_amount')}</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_status')}</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-end">{t('table_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -894,30 +913,30 @@ export function ScannerClient() {
                         <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.merchant}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{item.date ? new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-slate-100">
-                      ${item.amount.toFixed(2)}
+                      {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'SAR' }).format(item.amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-6 py-4 whitespace-nowrap text-end">
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => router.push(`/dashboard/expenses?edit=${item.id}`)}
-                          title="View & Edit Details"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                          title={t('view_edit')}
+                          className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={async () => {
-                            const proceed = await confirmAsync('Confirm Deletion', 'Are you sure you want to delete this scan?');
+                            const proceed = await confirmAsync(t('confirm_deletion'), t('confirm_delete_desc'));
                             if(proceed) removeExpense(item.id);
                           }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -927,7 +946,7 @@ export function ScannerClient() {
                 )) : (
                   <tr>
                     <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-500">
-                      No recent scans. Upload a receipt to get started!
+                      {t('no_recent_scans')}
                     </td>
                   </tr>
                 )}
@@ -943,7 +962,7 @@ export function ScannerClient() {
             
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
               <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <Crop className="w-5 h-5 text-emerald-500" /> Crop Image
+                <Crop className="w-5 h-5 text-emerald-500" /> {t('crop_image')}
               </h2>
               <button 
                 onClick={() => setIsCropModalOpen(false)}
@@ -974,13 +993,13 @@ export function ScannerClient() {
                 onClick={() => setIsCropModalOpen(false)}
                 className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button 
                 onClick={handleApplyCrop}
                 className="px-6 py-2.5 rounded-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
               >
-                Apply Crop
+                {t('crop_image')}
               </button>
             </div>
           </div>
@@ -1000,7 +1019,7 @@ export function ScannerClient() {
                 type="text"
                 defaultValue={modalState.defaultValue}
                 id="custom-prompt-input"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-6"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-6 text-slate-900 dark:text-slate-100"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') modalState.onConfirm?.((e.target as HTMLInputElement).value)
                 }}
@@ -1013,7 +1032,7 @@ export function ScannerClient() {
                   onClick={() => modalState.onCancel?.()}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               )}
               <button 
@@ -1030,7 +1049,7 @@ export function ScannerClient() {
                   modalState.type === 'alert' ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/20" : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20"
                 )}
               >
-                {modalState.type === 'alert' ? 'OK' : 'Confirm'}
+                {modalState.type === 'alert' ? t('ok') : t('confirm')}
               </button>
             </div>
           </div>

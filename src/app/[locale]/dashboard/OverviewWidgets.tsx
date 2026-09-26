@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, RadialBarChart, Rad
 import { Wallet, Target, TrendingUp, Edit2, Loader2, ArrowRight, ScanLine, Plus, Tag, Receipt, Medal } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Link } from '@/i18n/routing'
+import { useTranslations } from 'next-intl'
 
 type Expense = any
 
@@ -125,6 +126,21 @@ function NeedleGauge({ value, max }: { value: number, max: number }) {
 
 export function OverviewWidgets({ expenses, categories, monthKey, initialBudget, totalSpent, receiptCount, displayMonthName, topCategory }: Props) {
   const router = useRouter()
+  const t = useTranslations('Overview')
+  const tNames = useTranslations('CategoryNames')
+  
+  const getCategoryName = (name: string) => {
+    try {
+      const defaults = ["Groceries", "Personal Care", "Travel", "Entertainment & Subscriptions", "Other", "Transportation", "Electronics", "Housing & Rent", "Shopping", "Education", "Healthcare", "Restaurants & Cafes", "Utilities & Bills"]
+      if (defaults.includes(name)) {
+        return tNames(name as any)
+      }
+      return name
+    } catch {
+      return name
+    }
+  }
+
   const [budget, setBudget] = useState(initialBudget)
   const [isEditingBudget, setIsEditingBudget] = useState(false)
   const [budgetInput, setBudgetInput] = useState(initialBudget.toString())
@@ -147,13 +163,10 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
     .slice(0, 4)
 
   // 2. Weekly Comparison Data (Last 7 days vs Previous 7 days)
-  // For simplicity, we just use the latest 14 days of expenses in the selected month
   const sortedExpenses = [...expenses].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
-  
-  // Find the latest date in the expenses, or use today if empty
   const latestDate = sortedExpenses.length > 0 ? new Date(sortedExpenses[0].transaction_date) : new Date()
   
-  const weeklyData = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+  const weeklyData = [t('sun'), t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat')].map((day, index) => {
     return { name: day, thisWeek: 0, lastWeek: 0 }
   })
 
@@ -230,7 +243,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
           
           <div className="flex justify-between items-start relative z-10">
             <div>
-              <p className="text-white/80 font-medium text-xs mb-1 uppercase tracking-wider">Total Spent</p>
+              <p className="text-white/80 font-medium text-xs mb-1 uppercase tracking-wider">{t('total_spent')}</p>
               <h2 className="text-2xl font-bold tracking-tight">SAR {totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
             </div>
             <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/10">
@@ -240,7 +253,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
           
           <div className="relative z-10 mt-6 flex items-end justify-between">
             <div>
-              <p className="text-white/60 text-[10px] mb-0.5">Period</p>
+              <p className="text-white/60 text-[10px] mb-0.5">{t('period')}</p>
               <p className="font-semibold tracking-wider text-xs">{monthKey}</p>
             </div>
             <div className="flex gap-1.5">
@@ -251,7 +264,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
         </div>
 
         <StatCard
-          label="Receipts Scanned"
+          label={t('receipts_scanned')}
           value={receiptCount.toString()}
           sub={displayMonthName}
           icon={Receipt}
@@ -259,17 +272,17 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
           iconBg="bg-white/20"
         />
         <StatCard
-          label="Top Category"
-          value={topCategory}
-          sub="Highest spending"
+          label={t('top_category')}
+          value={getCategoryName(topCategory)}
+          sub={t('highest_spending')}
           icon={Tag}
           gradient="bg-gradient-to-br from-amber-400 to-orange-500"
           iconBg="bg-white/20"
         />
         <StatCard
-          label={budget > 0 && totalSpent > budget ? "Budget Exceeded" : "Budget Remaining"}
-          value={budget > 0 ? `SAR ${Math.abs(budget - totalSpent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not set'}
-          sub={budget > 0 ? `of SAR ${budget.toLocaleString()}` : 'Click icon to set budget'}
+          label={budget > 0 && totalSpent > budget ? t('budget_exceeded') : t('budget_remaining')}
+          value={budget > 0 ? `SAR ${Math.abs(budget - totalSpent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : t('not_set')}
+          sub={budget > 0 ? `SAR ${budget.toLocaleString()}` : t('click_to_set')}
           icon={Wallet}
           gradient={budget > 0 && totalSpent > budget ? "bg-gradient-to-br from-red-500 to-rose-600" : "bg-gradient-to-br from-blue-500 to-indigo-600"}
           iconBg="bg-white/20"
@@ -288,9 +301,9 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
             <div>
               <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <Target className="w-5 h-5 text-blue-500" />
-                Monthly Goal
+                {t('monthly_goal')}
               </h3>
-              <p className="text-xs text-slate-500 font-medium ml-7 mt-0.5">Target vs Achievement</p>
+              <p className="text-xs text-slate-500 font-medium ml-7 mt-0.5">{t('target_vs_achievement')}</p>
             </div>
             <button 
               onClick={() => setIsEditingBudget(!isEditingBudget)}
@@ -302,7 +315,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
 
           {isEditingBudget ? (
             <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 relative z-10">
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 text-center">Set your spending limit for {monthKey}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 text-center">{t('set_limit')} {monthKey}</p>
               <div className="flex w-full gap-2">
                 <input 
                   id="budget-input"
@@ -317,7 +330,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
                   disabled={isSaving}
                   className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-colors flex items-center justify-center min-w-[80px]"
                 >
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('save')}
                 </button>
               </div>
             </div>
@@ -328,14 +341,14 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
                  <div className="flex items-start gap-3">
                     <Medal className="w-6 h-6 text-slate-400 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-0.5">Target Achieved</p>
+                      <p className="text-sm font-medium text-slate-500 mb-0.5">{t('target_achieved')}</p>
                       <p className="text-xl font-bold text-slate-900 dark:text-white">SAR {totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
                  </div>
                  <div className="flex items-start gap-3">
                     <Target className="w-6 h-6 text-slate-400 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-0.5">This month Target</p>
+                      <p className="text-sm font-medium text-slate-500 mb-0.5">{t('this_month_target')}</p>
                       <p className="text-xl font-bold text-slate-900 dark:text-white">SAR {budget.toLocaleString()}</p>
                     </div>
                  </div>
@@ -351,8 +364,8 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
               <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-3">
                 <Target className="w-8 h-8 text-blue-500" />
               </div>
-              <p className="text-slate-600 dark:text-slate-300 font-medium mb-1">No Budget Set</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Set a monthly limit to track your goals.</p>
+              <p className="text-slate-600 dark:text-slate-300 font-medium mb-1">{t('no_budget')}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('set_limit_desc')}</p>
             </div>
           )}
         </div>
@@ -362,7 +375,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <Tag className="w-5 h-5 text-amber-500" />
-              Expenses by Category
+              {t('expenses_by_category')}
             </h3>
           </div>
           {donutData.length > 0 ? (
@@ -394,7 +407,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
                   <div key={index} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
-                      <span className="text-slate-700 dark:text-slate-300 truncate max-w-[90px]" title={entry.name}>{entry.name}</span>
+                      <span className="text-slate-700 dark:text-slate-300 truncate max-w-[90px]" title={getCategoryName(entry.name)}>{getCategoryName(entry.name)}</span>
                     </div>
                     <span className="font-medium text-slate-900 dark:text-slate-100">{((entry.value / totalSpent) * 100).toFixed(0)}%</span>
                   </div>
@@ -406,8 +419,8 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
               <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center mb-3">
                 <Tag className="w-8 h-8 text-slate-400" />
               </div>
-              <p className="text-slate-600 dark:text-slate-300 font-medium mb-1">No Categories Found</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Add expenses to see the breakdown.</p>
+              <p className="text-slate-600 dark:text-slate-300 font-medium mb-1">{t('no_categories')}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('add_expenses_desc')}</p>
             </div>
           )}
         </div>
@@ -416,7 +429,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
         <div className="bg-white dark:bg-slate-900 dark:bg-gradient-to-br dark:from-rose-500/10 dark:to-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-rose-500/20 shadow-sm flex flex-col relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 group-hover:bg-rose-500/10 transition-colors duration-500" />
           <div className="flex justify-between items-center mb-4 relative z-10">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100">Top Merchants</h3>
+            <h3 className="font-bold text-slate-800 dark:text-slate-100">{t('top_merchants')}</h3>
           </div>
           {topMerchants.length > 0 ? (
             <div className="flex flex-col gap-4 flex-1 justify-center relative z-10">
@@ -428,7 +441,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">{name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{((amount as number / totalSpent) * 100).toFixed(0)}% of total</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{((amount as number / totalSpent) * 100).toFixed(0)}% {t('of_total')}</p>
                     </div>
                   </div>
                   <p className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover/item:text-rose-500 transition-colors">
@@ -439,7 +452,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-500 text-sm relative z-10">
-              No transactions yet.
+              {t('no_transactions')}
             </div>
           )}
         </div>
@@ -453,16 +466,16 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
             <div>
               <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-emerald-500" />
-                Weekly Comparison
+                {t('weekly_comparison')}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Last 7 days vs Previous 7 days</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('last_7_days')}</p>
             </div>
             <div className="flex items-center gap-4 text-xs font-medium">
               <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                <div className="w-3 h-3 rounded bg-emerald-500" /> This Week
+                <div className="w-3 h-3 rounded bg-emerald-500" /> {t('this_week')}
               </div>
               <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                <div className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-700" /> Last Week
+                <div className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-700" /> {t('last_week')}
               </div>
             </div>
           </div>
@@ -485,10 +498,10 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
 
         {/* Quick Actions */}
         <div className="space-y-3 flex flex-col justify-center">
-          <p className="text-sm font-semibold text-slate-500 px-1 mb-1">Quick Actions</p>
-          <QuickAction href="/dashboard/scanner" icon={ScanLine} label="Scan a Receipt" description="Upload a photo and let AI extract the data" color="bg-emerald-500" />
-          <QuickAction href="/dashboard/expenses" icon={Plus} label="Add Expense" description="Enter expense details manually" color="bg-violet-500" />
-          <QuickAction href="/dashboard/categories" icon={Tag} label="Manage Categories" description="Customize your expense categories" color="bg-amber-500" />
+          <p className="text-sm font-semibold text-slate-500 px-1 mb-1">{t('quick_actions')}</p>
+          <QuickAction href="/dashboard/scanner" icon={ScanLine} label={t('scan_receipt')} description={t('scan_desc')} color="bg-emerald-500" />
+          <QuickAction href="/dashboard/expenses" icon={Plus} label={t('add_expense')} description={t('add_desc')} color="bg-violet-500" />
+          <QuickAction href="/dashboard/categories" icon={Tag} label={t('manage_categories')} description={t('manage_desc')} color="bg-amber-500" />
         </div>
       </div>
 

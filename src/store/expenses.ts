@@ -27,6 +27,7 @@ type ExpenseStore = {
   expenses: Expense[]
   categories: Category[]
   isLoading: boolean
+  isCategoriesLoading: boolean
   fetchExpenses: () => Promise<void>
   fetchCategories: () => Promise<void>
   addExpense: (expense: Expense) => Promise<void>
@@ -41,11 +42,14 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   expenses: [],
   categories: [],
   isLoading: true, // start true — skeleton shows immediately, never flashes "empty"
+  isCategoriesLoading: true,
   
   fetchCategories: async () => {
+    set({ isCategoriesLoading: true })
     const supabase = createClient()
     const { data, error } = await supabase.from('categories').select('*').order('name')
-    if (data && !error) set({ categories: data })
+    if (data && !error) set({ categories: data, isCategoriesLoading: false })
+    else set({ isCategoriesLoading: false })
   },
 
   fetchExpenses: async () => {

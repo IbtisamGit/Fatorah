@@ -67,6 +67,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(dashboardUrl)
   }
 
+  // 🚀 Visiting landing page (root) while ALREADY logged in → redirect to /dashboard
+  if (pathnameWithoutLocale === '/' && user) {
+    const dashboardUrl = request.nextUrl.clone()
+    const locale = pathname.match(/^\/(ar|en)/)?.[1] ?? 'ar'
+    dashboardUrl.pathname = `/${locale}/dashboard`
+    return NextResponse.redirect(dashboardUrl)
+  }
+
   return response
 }
 

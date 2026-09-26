@@ -9,6 +9,7 @@ import {
   Lightbulb, ActivitySquare, Loader2, ShieldCheck, HeartPulse
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslations } from 'next-intl'
 
 type AIReport = {
   score: number;
@@ -19,6 +20,7 @@ type AIReport = {
 }
 
 export function AnalyticsClient() {
+  const t = useTranslations('Analytics')
   const { expenses, isLoading, fetchExpenses } = useExpenseStore()
   
   const [budgetsMap, setBudgetsMap] = useState<Record<string, number>>({})
@@ -116,7 +118,7 @@ export function AnalyticsClient() {
     if (res.success && res.data) {
       setReport(res.data)
     } else {
-      setErrorMsg(res.error || 'Failed to generate insights. Please try again.')
+      setErrorMsg(res.error || t('error_failed'))
     }
     
     setIsGenerating(false)
@@ -135,6 +137,34 @@ export function AnalyticsClient() {
     return <HeartPulse className="w-12 h-12 animate-pulse" />
   }
 
+  const getTimeFilterLabel = (filter: string) => {
+    switch (filter) {
+      case 'this_month': return t('this_month')
+      case 'last_month': return t('last_month')
+      case 'this_year': return t('this_year')
+      default: return filter
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 max-w-5xl mx-auto pb-10 animate-in fade-in duration-500">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+          </div>
+          <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse" />
+          <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse" />
+        </div>
+        <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-10 animate-in fade-in duration-500">
       {/* Header & Filters */}
@@ -142,16 +172,16 @@ export function AnalyticsClient() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <BrainCircuit className="w-6 h-6 text-indigo-500" />
-            AI Financial Advisor
+            {t('title')}
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Get personalized insights powered by Gemini AI.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('subtitle')}</p>
         </div>
         
-        <div className="flex bg-white dark:bg-slate-900 rounded-xl p-1 shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full" dir="ltr">
+        <div className="flex bg-white dark:bg-slate-900 rounded-xl p-1 shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full">
           {[
-            { id: 'this_month', label: 'This Month' },
-            { id: 'last_month', label: 'Last Month' },
-            { id: 'this_year', label: 'This Year' },
+            { id: 'this_month', label: t('this_month') },
+            { id: 'last_month', label: t('last_month') },
+            { id: 'this_year', label: t('this_year') },
           ].map((f) => (
             <button
               key={f.id}
@@ -170,31 +200,30 @@ export function AnalyticsClient() {
       </div>
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6" dir="ltr">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute top-0 right-0 rtl:right-auto rtl:left-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 rtl:-translate-x-1/3" />
           <div className="flex items-center gap-3 mb-4 relative z-10">
             <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
               <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Spend ({timeFilter.replace('_', ' ')})</p>
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('total_spend', { period: getTimeFilterLabel(timeFilter) })}</p>
           </div>
-          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10">
-            <span className="text-xl font-medium text-slate-400 mr-1">{currency}</span>
-            {totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10 text-start">
+            {totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-xl font-medium text-slate-400 ms-1">{currency}</span>
           </p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute top-0 right-0 rtl:right-auto rtl:left-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3 rtl:-translate-x-1/3" />
           <div className="flex items-center gap-3 mb-4 relative z-10">
             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
               <Receipt className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Transactions Count</p>
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{t('transactions_count')}</p>
           </div>
-          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10">
-            {transactionCount} <span className="text-lg font-medium text-slate-500">receipts</span>
+          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10 text-start">
+            {transactionCount} <span className="text-lg font-medium text-slate-500 ms-1">{t('receipts')}</span>
           </p>
         </div>
       </div>
@@ -206,9 +235,9 @@ export function AnalyticsClient() {
           <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-pink-500/20 rounded-full blur-3xl mix-blend-multiply dark:mix-blend-lighten" />
           
           <BrainCircuit className="w-16 h-16 text-indigo-500 mb-6 relative z-10" />
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 relative z-10">Ready to analyze your spending?</h3>
+          <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 relative z-10">{t('ready_title')}</h3>
           <p className="text-slate-600 dark:text-slate-300 max-w-lg mx-auto mb-8 relative z-10">
-            Our AI will scan all your transactions for this period, calculate your financial health score, and provide actionable advice to keep your budget on track.
+            {t('ready_desc')}
           </p>
           
           <button 
@@ -217,11 +246,11 @@ export function AnalyticsClient() {
             className="relative z-10 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/20 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center gap-3 group"
           >
             <Sparkles className="w-5 h-5 group-hover:text-amber-400 transition-colors" />
-            Generate AI Insights
+            {t('generate_btn')}
           </button>
           
           {filteredExpenses.length === 0 && (
-            <p className="mt-4 text-sm text-rose-500 font-medium relative z-10">No transactions available for the selected period.</p>
+            <p className="mt-4 text-sm text-rose-500 font-medium relative z-10">{t('no_transactions')}</p>
           )}
           
           {errorMsg && (
@@ -234,21 +263,21 @@ export function AnalyticsClient() {
       {isGenerating && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 flex flex-col items-center justify-center text-center">
           <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">Analyzing your data...</h3>
-          <p className="text-slate-500 mt-2">Gemini is finding patterns in your spending</p>
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">{t('analyzing_title')}</h3>
+          <p className="text-slate-500 mt-2">{t('analyzing_desc')}</p>
         </div>
       )}
 
       {/* AI Report Result */}
       {report && !isGenerating && (
-        <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-700" dir="rtl">
+        <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-700">
           
           {/* Top Row: Score */}
           <div className={clsx("rounded-3xl p-8 border flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden", getScoreColor(report.score))}>
             <div className="absolute inset-0 bg-white/40 dark:bg-black/20" />
             <div className="relative z-10 flex flex-col items-center">
               {getScoreIcon(report.score)}
-              <h3 className="text-lg font-bold mt-4 opacity-80">مؤشر الصحة المالية</h3>
+              <h3 className="text-lg font-bold mt-4 opacity-80">{t('health_score')}</h3>
               <div className="text-6xl font-black my-2">{report.score}<span className="text-3xl opacity-50">/100</span></div>
               <p className="text-lg font-medium">{report.score_message}</p>
             </div>
@@ -259,17 +288,17 @@ export function AnalyticsClient() {
             
             {/* Behaviors */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3 mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3 mb-6 text-start">
                 <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                   <Activity className="w-5 h-5 text-indigo-500" />
                 </div>
-                تحليل السلوكيات
+                {t('behavior_analysis')}
               </h3>
               <ul className="space-y-4">
                 {report.behaviors.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-3">
                     <span className="w-2 h-2 mt-2 rounded-full bg-indigo-400 shrink-0" />
-                    <span className="text-slate-700 dark:text-slate-300 leading-relaxed">{item}</span>
+                    <span className="text-slate-700 dark:text-slate-300 leading-relaxed text-start">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -277,17 +306,17 @@ export function AnalyticsClient() {
 
             {/* Advice */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3 mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3 mb-6 text-start">
                 <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                   <Lightbulb className="w-5 h-5 text-emerald-500" />
                 </div>
-                خطة الإنقاذ و النصائح
+                {t('action_plan')}
               </h3>
               <ul className="space-y-4">
                 {report.advice.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-3">
                     <span className="w-2 h-2 mt-2 rounded-full bg-emerald-400 shrink-0" />
-                    <span className="text-slate-700 dark:text-slate-300 leading-relaxed">{item}</span>
+                    <span className="text-slate-700 dark:text-slate-300 leading-relaxed text-start">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -297,17 +326,17 @@ export function AnalyticsClient() {
           {/* Anomalies (If any) */}
           {report.anomalies && report.anomalies.length > 0 && (
             <div className="bg-rose-50 dark:bg-rose-900/10 rounded-3xl p-6 border border-rose-200 dark:border-rose-500/20 shadow-sm flex flex-col">
-              <h3 className="text-xl font-bold text-rose-700 dark:text-rose-400 flex items-center gap-3 mb-6">
+              <h3 className="text-xl font-bold text-rose-700 dark:text-rose-400 flex items-center gap-3 mb-6 text-start">
                 <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-rose-600" />
                 </div>
-                تنبيهات ومبالغ غير معتادة
+                {t('anomalies')}
               </h3>
               <ul className="space-y-4">
                 {report.anomalies.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-3">
                     <span className="w-2 h-2 mt-2 rounded-full bg-rose-500 shrink-0" />
-                    <span className="text-rose-900 dark:text-rose-200 leading-relaxed font-medium">{item}</span>
+                    <span className="text-rose-900 dark:text-rose-200 leading-relaxed font-medium text-start">{item}</span>
                   </li>
                 ))}
               </ul>

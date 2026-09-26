@@ -9,6 +9,7 @@ import { useRouter } from '@/i18n/routing'
 import { useSearchParams } from 'next/navigation'
 import { useExpenseStore } from '@/store/expenses'
 import * as LucideIcons from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 // Helper to ensure colors are readable
 const adjustColor = (hex: string) => {
@@ -47,9 +48,23 @@ export function ExpensesClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
+  const t = useTranslations('Expenses')
+  const tNames = useTranslations('CategoryNames')
   
   const { expenses: globalExpenses, categories: globalCategories, isLoading, addExpense, removeExpense, updateExpense, fetchExpenses, fetchCategories } = useExpenseStore()
   
+  const getCategoryName = (name: string) => {
+    try {
+      const defaults = ["Groceries", "Personal Care", "Travel", "Entertainment & Subscriptions", "Other", "Transportation", "Electronics", "Housing & Rent", "Shopping", "Education", "Healthcare", "Restaurants & Cafes", "Utilities & Bills"]
+      if (defaults.includes(name)) {
+        return tNames(name as any)
+      }
+      return name
+    } catch {
+      return name
+    }
+  }
+
   useEffect(() => {
     fetchExpenses()
     fetchCategories()
@@ -97,7 +112,9 @@ export function ExpensesClient() {
   const formatMonth = (yyyy_mm: string) => {
     const [year, month] = yyyy_mm.split('-')
     const date = new Date(parseInt(year), parseInt(month) - 1)
-    return date.toLocaleString('en-US', { month: 'long', year: 'numeric' })
+    // We can use the locale for formatting the month
+    // return date.toLocaleString('en-US', { month: 'long', year: 'numeric' })
+    return date.toLocaleString(undefined, { month: 'long', year: 'numeric' })
   }
 
   // Modal State
@@ -189,14 +206,14 @@ export function ExpensesClient() {
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'SAR' }).format(amount)
   }
 
   // Format date
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return 'Unknown Date'
+    if (!dateStr) return t('unknown_date')
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   return (
@@ -204,8 +221,8 @@ export function ExpensesClient() {
       
       {/* Header Area */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Expenses</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage and track your financial transactions.</p>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Main Container */}
@@ -222,7 +239,7 @@ export function ExpensesClient() {
               </div>
               <input
                 type="text"
-                placeholder="Search merchant..."
+                placeholder={t('search')}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:text-slate-200 transition-colors"
@@ -236,9 +253,9 @@ export function ExpensesClient() {
                 onChange={e => setFilterCategory(e.target.value)}
                 className="appearance-none pl-10 pr-8 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors cursor-pointer"
               >
-                <option value="All">All Categories</option>
+                <option value="All">{t('all_categories')}</option>
                 {uniqueCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>{getCategoryName(cat)}</option>
                 ))}
               </select>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -253,7 +270,7 @@ export function ExpensesClient() {
                 onChange={e => setFilterMonth(e.target.value)}
                 className="appearance-none pl-10 pr-8 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors cursor-pointer"
               >
-                <option value="All">All Time</option>
+                <option value="All">{t('all_time')}</option>
                 {uniqueMonths.map(month => (
                   <option key={month} value={month}>{formatMonth(month)}</option>
                 ))}
@@ -270,20 +287,20 @@ export function ExpensesClient() {
             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
           >
             <Plus className="w-4 h-4" />
-            Add Expense
+            {t('add_expense')}
           </button>
         </div>
 
         {/* Data Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-start border-collapse">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Transaction</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_transaction')}</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_date')}</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_category')}</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-start">{t('table_amount')}</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-end">{t('table_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -325,7 +342,7 @@ export function ExpensesClient() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{expense.merchant}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: #{expense.id.split('-')[0] || expense.id.padStart(5, '0')}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('id_prefix')}{expense.id.split('-')[0] || expense.id.padStart(5, '0')}</p>
                           </div>
                         </div>
                       </td>
@@ -340,7 +357,7 @@ export function ExpensesClient() {
                           style={{ backgroundColor: expense.categoryColor + '20', color: expense.categoryColor }}
                         >
                           <CatIcon className="w-3.5 h-3.5" />
-                          {expense.categoryName}
+                          {getCategoryName(expense.categoryName)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -348,17 +365,17 @@ export function ExpensesClient() {
                           {formatCurrency(expense.amount)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <td className="px-6 py-4 whitespace-nowrap text-end">
+                        <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={() => handleEditClick(expense)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                            className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => handleDelete(expense.id)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                            className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -375,18 +392,18 @@ export function ExpensesClient() {
                       <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
                         <Receipt className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                       </div>
-                      <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">No expenses found</h3>
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">{t('no_expenses')}</h3>
                       <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6">
                         {searchTerm || filterCategory !== 'All' 
-                          ? "We couldn't find any expenses matching your filters. Try clearing them."
-                          : "You haven't logged any expenses yet. Start tracking your spending by adding a new expense."}
+                          ? t('no_expenses_search')
+                          : t('no_expenses_empty')}
                       </p>
                       {(searchTerm || filterCategory !== 'All') ? (
                         <button 
                           onClick={() => { setSearchTerm(''); setFilterCategory('All'); }}
                           className="text-sm font-semibold text-emerald-600 hover:text-emerald-700"
                         >
-                          Clear Filters
+                          {t('clear_filters')}
                         </button>
                       ) : (
                         <button 
@@ -394,7 +411,7 @@ export function ExpensesClient() {
                           className="flex items-center gap-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
                         >
                           <Plus className="w-4 h-4" />
-                          Add your first expense
+                          {t('add_first')}
                         </button>
                       )}
                     </div>
@@ -418,8 +435,8 @@ export function ExpensesClient() {
             </button>
 
             <div className="text-center mb-8 mt-2">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">How would you like to add it?</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Choose a method to record your expense.</p>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">{t('how_to_add')}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t('choose_method')}</p>
             </div>
 
             <div className="grid gap-4">
@@ -436,8 +453,8 @@ export function ExpensesClient() {
                   <Camera className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">Scan Receipt</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Smart AI extraction (Recommended)</p>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">{t('scan_receipt')}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('scan_desc')}</p>
                 </div>
               </button>
 
@@ -451,8 +468,8 @@ export function ExpensesClient() {
                   <PenLine className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">Enter Manually</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Type in the details yourself</p>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">{t('enter_manually')}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('enter_desc')}</p>
                 </div>
               </button>
             </div>
@@ -466,7 +483,7 @@ export function ExpensesClient() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+                {editingExpense ? t('edit_expense') : t('add_new_expense')}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
@@ -490,18 +507,18 @@ export function ExpensesClient() {
               )}
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Merchant Name</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('merchant_name')}</label>
                 <input 
                   type="text" required autoFocus
                   value={formData.merchant} onChange={e => setFormData({...formData, merchant: e.target.value})}
-                  placeholder="e.g. Starbucks, Uber..."
+                  placeholder={t('merchant_placeholder')}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:text-slate-100"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Amount ($)</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('amount_label')}</label>
                   <input 
                     type="number" required min="0" step="0.01"
                     value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})}
@@ -510,7 +527,7 @@ export function ExpensesClient() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Date</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('date_label')}</label>
                   <input 
                     type="date" required
                     value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})}
@@ -520,16 +537,16 @@ export function ExpensesClient() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('category_label')}</label>
                 <select
                   value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:text-slate-100 cursor-pointer"
                 >
                   {uniqueCategories.length === 0 && (
-                    <option value="Other">Other</option>
+                    <option value="Other">{t('other')}</option>
                   )}
                   {uniqueCategories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat} value={cat}>{getCategoryName(cat)}</option>
                   ))}
                 </select>
               </div>
@@ -539,7 +556,7 @@ export function ExpensesClient() {
                   type="button" onClick={() => setIsModalOpen(false)}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button 
                   type="submit"
@@ -547,7 +564,7 @@ export function ExpensesClient() {
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5"
                 >
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  {isSaving ? 'Saving...' : editingExpense ? 'Save Changes' : 'Add Expense'}
+                  {isSaving ? t('saving') : editingExpense ? t('save_changes') : t('add_expense')}
                 </button>
               </div>
             </form>
@@ -564,8 +581,8 @@ export function ExpensesClient() {
                 <Trash2 className="w-6 h-6 text-rose-600 dark:text-rose-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Delete Expense</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">This action cannot be undone.</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t('delete_expense')}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{t('delete_warning')}</p>
               </div>
             </div>
             <div className="flex gap-3 pt-2">
@@ -573,13 +590,13 @@ export function ExpensesClient() {
                 onClick={() => setDeleteId(null)}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={() => { removeExpense(deleteId); setDeleteId(null) }}
                 className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition-colors"
               >
-                Delete
+                {t('delete')}
               </button>
             </div>
           </div>
