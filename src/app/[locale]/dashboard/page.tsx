@@ -11,6 +11,7 @@ import { OverviewWidgets } from './OverviewWidgets'
 import { OverviewFilters } from './OverviewFilters'
 import { Suspense } from 'react'
 import { CalendarDays } from 'lucide-react'
+import { getTranslations } from 'next-intl/server'
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default async function OverviewPage({
@@ -110,9 +111,9 @@ export default async function OverviewPage({
   const remaining     = monthlyBudget - totalSpent
   const hasData       = totalSpent > 0
 
-  const MONTH_NAMES = ['January','February','March','April','May','June',
-                       'July','August','September','October','November','December']
-  const displayMonthName = MONTH_NAMES[selectedMonth - 1]
+  const t = await getTranslations('Overview')
+  const tMonths = await getTranslations('Months')
+  const displayMonthName = tMonths(String(selectedMonth))
 
   return (
     <div className="space-y-6 max-w-6xl animate-in fade-in duration-500">
@@ -120,10 +121,10 @@ export default async function OverviewPage({
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Overview</h2>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             {displayMonthName} {selectedYear}
-            {isCurrentMonth && <span className="ml-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">Current</span>}
+            {isCurrentMonth && <span className="mx-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">{t('current')}</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -137,7 +138,7 @@ export default async function OverviewPage({
           <Link href="/dashboard/scanner">
             <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/25 transition-all hover:-translate-y-0.5">
               <ScanLine className="w-4 h-4" />
-              Scan Receipt
+              {t('scan_receipt_btn')}
             </button>
           </Link>
         </div>

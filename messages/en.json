@@ -1,4 +1,18 @@
 {
+  "Months": {
+    "1": "January",
+    "2": "February",
+    "3": "March",
+    "4": "April",
+    "5": "May",
+    "6": "June",
+    "7": "July",
+    "8": "August",
+    "9": "September",
+    "10": "October",
+    "11": "November",
+    "12": "December"
+  },
   "Index": {
     "hero_badge": "Smart Finance Tracker & OCR",
     "hero_title": "Take Control of Your Finances with AI",
@@ -190,6 +204,13 @@
     "saving": "Saving..."
   },
   "Overview": {
+    "title": "Overview",
+    "current": "Current",
+    "scan_receipt_btn": "Scan Receipt",
+    "year_label": "Year",
+    "month_label": "Month",
+    "go_to": "Go to {month} {year}",
+    "today": "Today",
     "total_spent": "Total Spent",
     "period": "Period",
     "receipts_scanned": "Receipts Scanned",

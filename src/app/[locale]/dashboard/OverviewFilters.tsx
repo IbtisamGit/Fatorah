@@ -3,22 +3,20 @@
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react'
 import { useTransition, useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface Props {
   year: number
   month: number // 1-based
 }
 
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-]
-
 // Build a list of available years (5 years back up to current)
 const currentYear = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i)
 
 export function OverviewFilters({ year, month }: Props) {
+  const t = useTranslations('Overview')
+  const tMonths = useTranslations('Months')
   const router      = useRouter()
   const pathname    = usePathname()
   const searchParams = useSearchParams()
@@ -102,7 +100,7 @@ export function OverviewFilters({ year, month }: Props) {
           <div className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-emerald-500 shrink-0" />
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              {MONTH_NAMES[month - 1]} {year}
+              {tMonths(String(month))} {year}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -120,7 +118,7 @@ export function OverviewFilters({ year, month }: Props) {
             
             {/* Year Selector */}
             <div className="mb-3">
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Year</label>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">{t('year_label')}</label>
               <div className="flex gap-1.5 flex-wrap">
                 {YEARS.map(y => (
                   <button
@@ -140,10 +138,9 @@ export function OverviewFilters({ year, month }: Props) {
 
             {/* Month Grid */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Month</label>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">{t('month_label')}</label>
               <div className="grid grid-cols-3 gap-1.5">
-                {MONTH_NAMES.map((name, idx) => {
-                  const mNum = idx + 1
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(mNum => {
                   // Disable future months
                   const isFutureMonth = pickerYear > now.getFullYear() ||
                     (pickerYear === now.getFullYear() && mNum > now.getMonth() + 1)
@@ -158,7 +155,7 @@ export function OverviewFilters({ year, month }: Props) {
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                       }`}
                     >
-                      {name.slice(0, 3)}
+                      {tMonths(String(mNum)).slice(0, 3)}
                     </button>
                   )
                 })}
@@ -170,7 +167,7 @@ export function OverviewFilters({ year, month }: Props) {
               onClick={applyPicker}
               className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
             >
-              Go to {MONTH_NAMES[pickerMonth - 1]} {pickerYear}
+              {t('go_to', { month: tMonths(String(pickerMonth)), year: pickerYear })}
             </button>
           </div>
         )}
@@ -192,7 +189,7 @@ export function OverviewFilters({ year, month }: Props) {
           onClick={goToToday}
           className="px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-lg border border-emerald-200 dark:border-emerald-800/50 transition-colors"
         >
-          Today
+          {t('today')}
         </button>
       )}
     </div>

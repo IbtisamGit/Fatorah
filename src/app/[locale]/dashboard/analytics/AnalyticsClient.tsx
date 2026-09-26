@@ -114,7 +114,8 @@ export function AnalyticsClient() {
       date: e.date.split('T')[0]
     }))
     
-    const res = await generateInsights(JSON.stringify(lightExpenses), activeBudget, currency)
+    const locale = (window.location.pathname.startsWith('/en') ? 'en' : 'ar')
+    const res = await generateInsights(JSON.stringify(lightExpenses), activeBudget, currency, locale)
     if (res.success && res.data) {
       setReport(res.data)
     } else {

@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-export async function generateInsights(expensesJson: string, budget: number, currency: string) {
+export async function generateInsights(expensesJson: string, budget: number, currency: string, locale: string = 'ar') {
   try {
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
@@ -15,6 +15,8 @@ export async function generateInsights(expensesJson: string, budget: number, cur
       generationConfig: { temperature: 0.1 }
     })
     
+    const language = locale === 'en' ? 'English' : 'Arabic'
+
     const prompt = `
       You are an expert, professional, and friendly Financial Advisor AI for a personal finance app.
       Your job is to analyze the user's recent expenses and provide a structured JSON report.
@@ -26,15 +28,15 @@ export async function generateInsights(expensesJson: string, budget: number, cur
       Analyze the data deeply and return a JSON object exactly matching this schema:
       {
         "score": number, // A financial health score from 0 to 100. 100 means excellent (well under budget, healthy spending). 0 means terrible (over budget, erratic spending).
-        "score_message": string, // A short motivational or warning phrase (in Arabic) summarizing the score.
-        "behaviors": string[], // 2 to 3 bullet points (in Arabic) observing their spending habits (e.g. "Most of your money goes to food", "You spend a lot on weekends").
-        "anomalies": string[], // 0 to 2 bullet points (in Arabic) pointing out unusual or very large transactions that stand out. If none, return an empty array.
-        "advice": string[] // 2 actionable pieces of advice (in Arabic) on how to improve or maintain their budget for the rest of the month.
+        "score_message": string, // A short motivational or warning phrase (in ${language}) summarizing the score.
+        "behaviors": string[], // 2 to 3 bullet points (in ${language}) observing their spending habits (e.g. "Most of your money goes to food", "You spend a lot on weekends").
+        "anomalies": string[], // 0 to 2 bullet points (in ${language}) pointing out unusual or very large transactions that stand out. If none, return an empty array.
+        "advice": string[] // 2 actionable pieces of advice (in ${language}) on how to improve or maintain their budget for the rest of the month.
       }
       
       Rules:
       - The output MUST be valid JSON only. No markdown formatting like \`\`\`json.
-      - All text fields MUST be written in conversational, encouraging Arabic.
+      - All text fields MUST be written in conversational, encouraging ${language}.
       - If there are no expenses, provide a welcoming message telling them to start scanning receipts, and give a score of 100.
       - Be specific! Mention category names and amounts when relevant.
     `

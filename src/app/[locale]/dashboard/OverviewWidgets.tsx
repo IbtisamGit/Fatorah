@@ -196,7 +196,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
     return acc
   }, {} as Record<string, { name: string, value: number, color: string }>)
 
-  const donutData = Object.values(categoryTotalsData)
+  const donutData: { name: string, value: number, color: string }[] = (Object.values(categoryTotalsData) as { name: string, value: number, color: string }[])
     .filter(d => d.value > 0)
     .sort((a, b) => b.value - a.value)
 
@@ -396,7 +396,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => [`SAR ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Amount']}
+                      formatter={(value: any) => [`SAR ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Amount']}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                   </PieChart>
@@ -487,7 +487,7 @@ export function OverviewWidgets({ expenses, categories, monthKey, initialBudget,
                 <Tooltip 
                   cursor={{ fill: 'rgba(241, 245, 249, 0.5)' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                  formatter={(value: number) => [`SAR ${value.toFixed(2)}`, '']}
+                  formatter={(value: any) => [`SAR ${Number(value).toFixed(2)}`, '']}
                 />
                 <Bar dataKey="lastWeek" fill="#e2e8f0" radius={[4, 4, 0, 0]} barSize={12} />
                 <Bar dataKey="thisWeek" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />

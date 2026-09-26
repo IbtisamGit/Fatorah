@@ -11,7 +11,7 @@ const protectedRoutes = ['/dashboard']
 // Routes that require the user to be logged OUT
 const authRoutes = ['/login', '/signup']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Run next-intl first to handle locale prefix
   const response = intlMiddleware(request)
 
