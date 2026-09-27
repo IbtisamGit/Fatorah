@@ -142,13 +142,26 @@ export default function HomePage() {
       </section>
       
       {/* Footer */}
-      <footer className="bg-white py-12 border-t">
+      {/* Footer */}
+      <footer className="bg-white dark:bg-slate-950 py-12 border-t border-slate-200 dark:border-slate-800 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 mb-4 opacity-50 grayscale">
+          
+          {/* Logo */}
+          <div className="inline-flex items-center gap-2 mb-4 opacity-50 grayscale text-slate-800 dark:text-slate-200">
             <Receipt className="w-6 h-6" />
             <span className="font-bold text-xl tracking-tight">Fatorah</span>
           </div>
-          <p className="text-gray-400">© {new Date().getFullYear()} Fatorah. All rights reserved.</p>
+          
+          {/* Copyright - LTR forced to avoid RTL bugs */}
+          <div className="flex flex-col items-center justify-center gap-1.5" dir="ltr">
+            <p className="text-sm text-slate-400 dark:text-slate-500">
+              © {new Date().getFullYear()} Fatorah. All rights reserved.
+            </p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Built by Ibtisam
+            </p>
+          </div>
+          
         </div>
       </footer>
     </div>
