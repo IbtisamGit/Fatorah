@@ -120,7 +120,10 @@ export function Sidebar({
         {/* Footer */}
         {!isCollapsed && (
           <div className="px-5 pb-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">© {new Date().getFullYear()} Fatorah</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 flex flex-col gap-0.5">
+            <span>© {new Date().getFullYear()} Fatorah</span>
+            <span className="text-slate-300 dark:text-slate-600">Built by Ibtisam</span>
+          </p>
           </div>
         )}
       </aside>
